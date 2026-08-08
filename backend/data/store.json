@@ -1,0 +1,595 @@
+{
+  "users": [
+    {
+      "id": "faculty_1",
+      "email": "faculty@quizgenius.edu",
+      "password": "password123",
+      "name": "Dr. Sarah Jenkins",
+      "department": "Computer Science & Engineering"
+    }
+  ],
+  "questionBanks": [
+    {
+      "id": "qb_1786107946823",
+      "title": "list",
+      "description": "",
+      "createdAt": "2026-08-07T13:05:46.823Z",
+      "questions": []
+    },
+    {
+      "id": "qb_1786107942646",
+      "title": "list",
+      "description": "",
+      "createdAt": "2026-08-07T13:05:42.646Z",
+      "questions": []
+    },
+    {
+      "id": "qb_1786099403971",
+      "title": "1",
+      "description": "AI-Parsed Question Bank",
+      "createdAt": "2026-08-07T10:43:23.971Z",
+      "questions": []
+    },
+    {
+      "id": "qb_1786041487885",
+      "title": "questions",
+      "description": "AI-Parsed Question Bank",
+      "createdAt": "2026-08-06T18:38:07.885Z",
+      "questions": [
+        {
+          "id": "q_1786041487885_0_era3",
+          "question": "What is 2 + 2?",
+          "options": [
+            "3",
+            "4",
+            "5",
+            "6"
+          ],
+          "correctAnswer": "B",
+          "marks": 1,
+          "explanation": "Refer to course study material."
+        },
+        {
+          "id": "q_1786041487885_1_czgr",
+          "question": "What is the capital of France?",
+          "options": [
+            "Berlin",
+            "London",
+            "Madrid",
+            "Paris"
+          ],
+          "correctAnswer": "D",
+          "marks": 1,
+          "explanation": "Refer to course study material."
+        }
+      ]
+    },
+    {
+      "id": "qb_1",
+      "title": "Data Structures & Algorithms QB",
+      "description": "Comprehensive MCQs on Arrays, Trees, and Sorting Algorithms",
+      "createdAt": "2026-08-06T18:18:08.285Z",
+      "questions": [
+        {
+          "id": "q2",
+          "question": "Which of the following data structures operates on a Last In First Out (LIFO) order?",
+          "options": [
+            "A) Queue",
+            "B) Stack",
+            "C) Binary Tree",
+            "D) Graph"
+          ],
+          "correctAnswer": "B",
+          "marks": 2,
+          "explanation": "A Stack processes elements in LIFO order (Push/Pop)."
+        },
+        {
+          "id": "q3",
+          "question": "What is the worst-case time complexity of QuickSort?",
+          "options": [
+            "A) O(N log N)",
+            "B) O(N^2)",
+            "C) O(N)",
+            "D) O(1)"
+          ],
+          "correctAnswer": "B",
+          "marks": 2,
+          "explanation": "Worst-case occurs when the pivot is consistently the smallest or largest element, leading to O(N^2)."
+        }
+      ]
+    }
+  ],
+  "quizzes": [
+    {
+      "id": "qz_1786115993128",
+      "quizCode": "TN7BK",
+      "title": "3",
+      "description": "Standard Proctored Assessment",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T15:19:53.128Z",
+      "endTime": "2026-08-08T15:19:53.128Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 1,
+      "questionBankId": null,
+      "questions": [
+        {
+          "id": "q_manual_1786115992115",
+          "question": "3",
+          "options": [
+            "3",
+            "3",
+            "3",
+            "3"
+          ],
+          "correctAnswer": "A",
+          "marks": 1,
+          "explanation": "Manually added question."
+        }
+      ],
+      "roster": [],
+      "createdAt": "2026-08-07T15:19:53.128Z"
+    },
+    {
+      "id": "qz_1786108104278",
+      "quizCode": "QV9Q1",
+      "title": "1",
+      "description": "Standard Proctored Assessment",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T13:08:24.278Z",
+      "endTime": "2026-08-08T13:08:24.278Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 1,
+      "questionBankId": null,
+      "questions": [
+        {
+          "id": "q_manual_1786108102648",
+          "question": "1",
+          "options": [
+            "1",
+            "1",
+            "1",
+            "1"
+          ],
+          "correctAnswer": "A",
+          "marks": 1,
+          "explanation": "Manually added question."
+        }
+      ],
+      "roster": [],
+      "createdAt": "2026-08-07T13:08:24.278Z"
+    },
+    {
+      "id": "qz_1786107861133",
+      "quizCode": "7E2HT",
+      "title": "Persistence Verification Quiz",
+      "description": "Standard Proctored Assessment",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T13:04:21.133Z",
+      "endTime": "2026-08-08T13:04:21.133Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 1,
+      "questionBankId": null,
+      "questions": [
+        {
+          "id": "q_manual_1786107852543",
+          "question": "What is 2+2?",
+          "options": [
+            "4",
+            "3",
+            "Option C",
+            "Option D"
+          ],
+          "correctAnswer": "A",
+          "marks": 1,
+          "explanation": "Manually added question."
+        }
+      ],
+      "roster": [],
+      "createdAt": "2026-08-07T13:04:21.134Z"
+    },
+    {
+      "id": "qz_1786107654405",
+      "quizCode": "QORMY",
+      "title": "t1",
+      "description": "Standard Proctored Assessment",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T13:00:54.406Z",
+      "endTime": "2026-08-08T13:00:54.406Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 1,
+      "questionBankId": null,
+      "questions": [
+        {
+          "id": "q_manual_1786107652815",
+          "question": "1",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "correctAnswer": "A",
+          "marks": 1,
+          "explanation": "Manually added question."
+        }
+      ],
+      "roster": [],
+      "createdAt": "2026-08-07T13:00:54.406Z"
+    },
+    {
+      "id": "qz_1786107403718",
+      "quizCode": "04DT5",
+      "title": "Automated Test Quiz 101",
+      "description": "Standard Proctored Assessment",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T12:56:43.718Z",
+      "endTime": "2026-08-08T12:56:43.718Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 1,
+      "questionBankId": null,
+      "questions": [
+        {
+          "id": "q_manual_1786107390285",
+          "question": "What is 2 + 2?",
+          "options": [
+            "3",
+            "4",
+            "5",
+            "6"
+          ],
+          "correctAnswer": "B",
+          "marks": 1,
+          "explanation": "Manually added question."
+        }
+      ],
+      "roster": [],
+      "createdAt": "2026-08-07T12:56:43.718Z"
+    },
+    {
+      "id": "qz_1786107121102",
+      "quizCode": "WE9G5",
+      "title": "t1",
+      "description": "Standard Proctored Assessment",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T12:52:01.102Z",
+      "endTime": "2026-08-08T12:52:01.102Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 1,
+      "questionBankId": null,
+      "questions": [
+        {
+          "id": "q_manual_1786107118789",
+          "question": "1",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "correctAnswer": "A",
+          "marks": 1,
+          "explanation": "Manually added question."
+        }
+      ],
+      "roster": [],
+      "createdAt": "2026-08-07T12:52:01.102Z"
+    },
+    {
+      "id": "qz_1786106841708",
+      "quizCode": "KS55X",
+      "title": "Excel Test Quiz",
+      "description": "Standard Proctored Assessment",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T12:47:21.708Z",
+      "endTime": "2026-08-08T12:47:21.708Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 1,
+      "questionBankId": null,
+      "questions": [
+        {
+          "id": "q_manual_1786106836347",
+          "question": "What is 2 + 2?",
+          "options": [
+            "4",
+            "5",
+            "6",
+            "7"
+          ],
+          "correctAnswer": "A",
+          "marks": 1,
+          "explanation": "Manually added question."
+        }
+      ],
+      "roster": [],
+      "createdAt": "2026-08-07T12:47:21.708Z"
+    },
+    {
+      "id": "qz_1786100860283",
+      "quizCode": "ZW75I",
+      "title": "Final Exam OS",
+      "description": "Standard Proctored Assessment",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T11:07:40.283Z",
+      "endTime": "2026-08-08T11:07:40.283Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 1,
+      "questionBankId": null,
+      "questions": [
+        {
+          "id": "q_manual_1786100848985",
+          "question": "What is OS?",
+          "options": [
+            "Operating System",
+            "Open Source",
+            "Optical Sensor",
+            "Over Size"
+          ],
+          "correctAnswer": "A",
+          "marks": 1,
+          "explanation": "Manually added question."
+        }
+      ],
+      "roster": [
+        {
+          "regNo": "24BCA7351",
+          "name": "Dat Quiz",
+          "email": "datquizdb@gmail.com"
+        },
+        {
+          "regNo": "24BCE7101",
+          "name": "Rajjeet Saha",
+          "email": "rajjeet.24bce7101@vitapstudent.ac.in"
+        },
+        {
+          "regNo": "24MIS7351",
+          "name": "Shivaram",
+          "email": "shivaram.24mis7351@vitapstudent.ac.in"
+        }
+      ],
+      "createdAt": "2026-08-07T11:07:40.283Z"
+    },
+    {
+      "id": "qz_1786098530864",
+      "quizCode": "YWBNT",
+      "title": "Operating Systems Final Exam",
+      "description": "All questions carry equal marks. Strictly no external aids.",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T10:28:50.864Z",
+      "endTime": "2026-08-08T10:28:50.864Z",
+      "durationMinutes": 45,
+      "marksPerQuestion": 5,
+      "questionBankId": "qb_1786041487885",
+      "questions": [
+        {
+          "id": "q_1786041487885_0_era3",
+          "question": "What is 2 + 2?",
+          "options": [
+            "3",
+            "4",
+            "5",
+            "6"
+          ],
+          "correctAnswer": "B",
+          "marks": 5,
+          "explanation": "Refer to course study material."
+        },
+        {
+          "id": "q_1786041487885_1_czgr",
+          "question": "What is the capital of France?",
+          "options": [
+            "Berlin",
+            "London",
+            "Madrid",
+            "Paris"
+          ],
+          "correctAnswer": "D",
+          "marks": 5,
+          "explanation": "Refer to course study material."
+        }
+      ],
+      "roster": [],
+      "createdAt": "2026-08-07T10:28:50.864Z"
+    },
+    {
+      "id": "qz_1786098463722",
+      "quizCode": "SNEYP",
+      "title": "Test Quiz Questions",
+      "description": "Testing questions array",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T10:27:43.722Z",
+      "endTime": "2026-08-08T10:27:43.722Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 2,
+      "questionBankId": null,
+      "questions": [],
+      "roster": [],
+      "createdAt": "2026-08-07T10:27:43.722Z"
+    },
+    {
+      "id": "qz_1786098457280",
+      "quizCode": "R3L0F",
+      "title": "Test Quiz JSON",
+      "description": "Testing JSON structure",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T10:27:37.280Z",
+      "endTime": "2026-08-08T10:27:37.280Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 2,
+      "questionBankId": "qb_1",
+      "questions": [
+        {
+          "id": "q2",
+          "question": "Which of the following data structures operates on a Last In First Out (LIFO) order?",
+          "options": [
+            "A) Queue",
+            "B) Stack",
+            "C) Binary Tree",
+            "D) Graph"
+          ],
+          "correctAnswer": "B",
+          "marks": 2,
+          "explanation": "A Stack processes elements in LIFO order (Push/Pop)."
+        },
+        {
+          "id": "q3",
+          "question": "What is the worst-case time complexity of QuickSort?",
+          "options": [
+            "A) O(N log N)",
+            "B) O(N^2)",
+            "C) O(N)",
+            "D) O(1)"
+          ],
+          "correctAnswer": "B",
+          "marks": 2,
+          "explanation": "Worst-case occurs when the pivot is consistently the smallest or largest element, leading to O(N^2)."
+        }
+      ],
+      "roster": [],
+      "createdAt": "2026-08-07T10:27:37.280Z"
+    },
+    {
+      "id": "qz_1786098344128",
+      "quizCode": "30YXG",
+      "title": "Operating Systems Final Exam",
+      "description": "All questions carry equal marks. Strictly no external aids.",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-07T10:25:44.128Z",
+      "endTime": "2026-08-08T10:25:44.128Z",
+      "durationMinutes": 45,
+      "marksPerQuestion": 5,
+      "questionBankId": null,
+      "questions": [],
+      "roster": [],
+      "createdAt": "2026-08-07T10:25:44.128Z"
+    },
+    {
+      "id": "qz_demo",
+      "quizCode": "QZ87X",
+      "title": "DS & Algorithms Mid-Term Quiz",
+      "description": "Covers Trees, Stacks, and Time Complexity.",
+      "facultyId": "faculty_1",
+      "startTime": "2026-08-06T17:18:08.286Z",
+      "endTime": "2026-08-07T18:18:08.286Z",
+      "durationMinutes": 30,
+      "marksPerQuestion": 2,
+      "questionBankId": "qb_1",
+      "questions": [
+        {
+          "id": "q1",
+          "question": "What is the time complexity of searching an element in a balanced Binary Search Tree (BST)?",
+          "options": [
+            "A) O(1)",
+            "B) O(log N)",
+            "C) O(N)",
+            "D) O(N log N)"
+          ],
+          "correctAnswer": "B",
+          "marks": 2
+        },
+        {
+          "id": "q2",
+          "question": "Which of the following data structures operates on a Last In First Out (LIFO) order?",
+          "options": [
+            "A) Queue",
+            "B) Stack",
+            "C) Binary Tree",
+            "D) Graph"
+          ],
+          "correctAnswer": "B",
+          "marks": 2
+        },
+        {
+          "id": "q3",
+          "question": "What is the worst-case time complexity of QuickSort?",
+          "options": [
+            "A) O(N log N)",
+            "B) O(N^2)",
+            "C) O(N)",
+            "D) O(1)"
+          ],
+          "correctAnswer": "B",
+          "marks": 2
+        }
+      ],
+      "roster": [
+        {
+          "regNo": "2023CS101",
+          "name": "Alex Johnson",
+          "email": "alex.j@student.edu"
+        },
+        {
+          "regNo": "2023CS102",
+          "name": "Emily Davis",
+          "email": "emily.d@student.edu"
+        },
+        {
+          "regNo": "2023CS103",
+          "name": "Michael Smith",
+          "email": "michael.s@student.edu"
+        },
+        {
+          "regNo": "2023CS104",
+          "name": "Sophia Martinez",
+          "email": "sophia.m@student.edu"
+        }
+      ],
+      "createdAt": "2026-08-06T18:18:08.286Z"
+    }
+  ],
+  "submissions": [
+    {
+      "id": "sub_2",
+      "quizCode": "QZ87X",
+      "regNo": "2023CS102",
+      "studentName": "Emily Davis",
+      "answers": {
+        "q1": "A",
+        "q2": "B",
+        "q3": "C"
+      },
+      "score": 2,
+      "totalPossible": 6,
+      "tabSwitchCount": 4,
+      "cheatFlags": [
+        "Tab Switch Detected (4 times)",
+        "Exited Fullscreen"
+      ],
+      "submittedAt": "2026-08-06T18:03:08.286Z"
+    },
+    {
+      "id": "sub_1786098635698",
+      "quizCode": "YWBNT",
+      "regNo": "2023CS101",
+      "studentName": "Alex Johnson",
+      "answers": {
+        "q_1786041487885_0_era3": "B",
+        "q_1786041487885_1_czgr": "D"
+      },
+      "score": 10,
+      "totalPossible": 10,
+      "tabSwitchCount": 1,
+      "fullscreenViolations": 0,
+      "cheatFlags": [
+        "Tab Switched (1 time)"
+      ],
+      "status": "Flagged",
+      "submittedAt": "2026-08-07T10:30:35.698Z"
+    },
+    {
+      "id": "sub_1786101089840",
+      "quizCode": "ZW75I",
+      "regNo": "24mis7351",
+      "studentName": "shiv",
+      "answers": {
+        "q_manual_1786100848985": "A"
+      },
+      "score": 1,
+      "totalPossible": 1,
+      "tabSwitchCount": 0,
+      "fullscreenViolations": 0,
+      "cheatFlags": [],
+      "status": "Completed",
+      "submittedAt": "2026-08-07T11:11:29.840Z"
+    }
+  ]
+}

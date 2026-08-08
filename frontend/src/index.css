@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #fff8e1;
+  min-height: 100vh;
+  color: #1e293b;
+  font-family: Inter, Roboto, system-ui, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fff8e1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e65100;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ef6c00;
+}
