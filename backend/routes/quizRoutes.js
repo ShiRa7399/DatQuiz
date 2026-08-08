@@ -99,6 +99,30 @@ router.get('/:code', (req, res) => {
   return res.json({ quiz });
 });
 
+// Update quiz settings
+router.put('/:code', (req, res) => {
+  const store = readStore();
+  const code = req.params.code.trim().toUpperCase();
+  const quizIndex = store.quizzes.findIndex(q => q.quizCode === code);
+
+  if (quizIndex === -1) {
+    return res.status(404).json({ error: `Quiz code '${code}' not found.` });
+  }
+
+  const { durationMinutes, marksPerQuestion, startTime, endTime } = req.body;
+  if (durationMinutes) store.quizzes[quizIndex].durationMinutes = parseInt(durationMinutes, 10);
+  if (marksPerQuestion) store.quizzes[quizIndex].marksPerQuestion = parseFloat(marksPerQuestion);
+  if (startTime !== undefined) store.quizzes[quizIndex].startTime = startTime;
+  if (endTime !== undefined) store.quizzes[quizIndex].endTime = endTime;
+
+  writeStore(store);
+
+  return res.json({
+    message: 'Quiz settings updated successfully.',
+    quiz: store.quizzes[quizIndex]
+  });
+});
+
 // Upload Student Roster Excel (.xlsx) for a quiz
 router.post('/:code/roster', upload.single('file'), (req, res) => {
   try {

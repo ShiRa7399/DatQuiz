@@ -76,7 +76,7 @@ export default function Landing() {
             </div>
 
             <Link
-              to="/create-quiz"
+              to="/dashboard"
               className="w-full py-3.5 px-6 bg-white hover:bg-orange-50/80 text-[#e65c00] border-2 border-[#e65c00] font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 group"
             >
               <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform" />

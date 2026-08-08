@@ -95,23 +95,7 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-slate-200"></div>
-            <span className="flex-shrink mx-4 text-xs font-bold text-slate-400 uppercase">OR</span>
-            <div className="flex-grow border-t border-slate-200"></div>
-          </div>
-
-          {/* Google Login Button */}
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="w-full py-3 bg-white hover:bg-orange-50/50 border border-brand-700 text-brand-700 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2"
-          >
-            <span className="font-black text-sm">G</span> Sign in with Google
-          </button>
-
-          <p className="text-center text-xs font-medium text-brand-700">
+          <p className="text-center text-xs font-medium text-brand-700 mt-6">
             Don't have an account?{' '}
             <Link to="/signup" className="font-bold underline">
               Sign Up
