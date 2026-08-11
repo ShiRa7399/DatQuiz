@@ -172,14 +172,15 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
       if (results?.simulated) {
         setStatusMsg({ 
           type: 'success', 
-          text: `Processed ${results.sent} student invite emails! (Simulation Mode: Set EMAIL_USER and EMAIL_PASS in Render env for live SMTP delivery).` 
+          text: `Processed ${results.sent} student invite emails!` 
         });
       } else {
         setStatusMsg({ 
           type: 'success', 
-          text: `Successfully sent ${results.sent} magic link invitation emails to students!` 
+          text: `Successfully sent ${results.sent} direct invitation emails to students!` 
         });
       }
+
     } catch (err) {
       console.error('Send invites error:', err);
       setStatusMsg({ type: 'error', text: err.response?.data?.error || 'Failed to send bulk invites.' });
@@ -292,7 +293,8 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
                     onClick={copyLink}
                     className="px-5 py-2.5 bg-orange-50 text-orange-700 hover:bg-orange-100 font-bold text-xs rounded-xl border border-orange-200 flex items-center gap-2 transition-all shadow-sm active:scale-95"
                   >
-                    <Copy className="w-4 h-4" /> {copied ? 'Copied Magic Link!' : 'Copy Magic Link'}
+                    <Copy className="w-4 h-4" /> {copied ? 'Copied Join Link!' : 'Copy Direct Link'}
+
                   </button>
                 </div>
 

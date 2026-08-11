@@ -37,9 +37,8 @@ async function getTransporter() {
     }
   }
 
-  // Fallback to Instant Simulation Transport if no credentials or connection fails
+  // Fallback to Instant Simulation Transport if no credentials
   if (!transporter) {
-    console.log('ℹ️ Real SMTP credentials (EMAIL_USER / EMAIL_PASS) not set in backend env. Using Simulation Dispatch.');
     transporter = {
       isSimulated: true,
       sendMail: async (mailOptions) => {
@@ -53,11 +52,17 @@ async function getTransporter() {
 }
 
 /**
- * Sends magic link invitation emails to student roster and a summary receipt to faculty.
+ * Sends invitation emails to student roster and a summary receipt to faculty.
+ * Supports Google Apps Script Webhook (GOOGLE_SCRIPT_URL) or Nodemailer SMTP.
  */
 async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) {
   const mailer = await getTransporter();
-  const results = { sent: 0, failed: 0, simulated: !!mailer.isSimulated, previewUrls: [] };
+  const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL;
+  const results = { 
+    sent: 0, 
+    failed: 0, 
+    method: googleScriptUrl ? 'google_script' : (mailer.isSimulated ? 'simulated' : 'smtp') 
+  };
   const baseUrl = (frontendUrl || 'https://datquiz-88e31.web.app').replace(/\/$/, '');
 
   if (!roster || roster.length === 0) {
@@ -65,12 +70,14 @@ async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) 
   }
 
   for (const student of roster) {
-    if (!student.email) {
+    const studentEmail = (student.email || student.Email || (student.regNo ? `${student.regNo.toLowerCase()}@student.edu` : '')).trim();
+
+    if (!studentEmail) {
       results.failed++;
       continue;
     }
 
-    const magicLink = `${baseUrl}/#/join?code=${encodeURIComponent(quiz.quizCode)}&reg=${encodeURIComponent(student.regNo || '')}&name=${encodeURIComponent(student.name || '')}`;
+    const joinLink = `${baseUrl}/#/join?code=${encodeURIComponent(quiz.quizCode)}&reg=${encodeURIComponent(student.regNo || '')}&name=${encodeURIComponent(student.name || '')}`;
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #fff7ed; padding: 24px; border-radius: 12px; border: 1px solid #ffedd5;">
@@ -101,13 +108,13 @@ async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) 
           </table>
 
           <div style="text-align: center; margin: 28px 0;">
-            <a href="${magicLink}" style="background-color: #ea580c; color: #ffffff; padding: 14px 28px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);">
+            <a href="${joinLink}" style="background-color: #ea580c; color: #ffffff; padding: 14px 28px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);">
               Join Quiz Instantly &rarr;
             </a>
           </div>
 
           <p style="font-size: 12px; color: #9a3412; text-align: center;">
-            Direct Link: <a href="${magicLink}" style="color: #ea580c;">${magicLink}</a>
+            Direct Link: <a href="${joinLink}" style="color: #ea580c;">${joinLink}</a>
           </p>
         </div>
 
@@ -117,31 +124,37 @@ async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) 
       </div>
     `;
 
+    // 1. Google Apps Script Webhook Email Dispatch (if GOOGLE_SCRIPT_URL is configured)
+    if (googleScriptUrl) {
+      try {
+        await fetch(googleScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: studentEmail,
+            subject: `[DatQuiz] Join Quiz: ${quiz.title} (${quiz.quizCode})`,
+            html: htmlContent
+          })
+        });
+        results.sent++;
+        continue;
+      } catch (gErr) {
+        console.error(`Google Apps Script dispatch error for ${studentEmail}:`, gErr.message);
+      }
+    }
+
+    // 2. Nodemailer SMTP or Simulation Dispatch
     try {
       await mailer.sendMail({
         from: '"DatQuiz LMS" <no-reply@datquiz.edu>',
-        to: student.email,
+        to: studentEmail,
         subject: `[DatQuiz] Join Quiz: ${quiz.title} (${quiz.quizCode})`,
         html: htmlContent
       });
       results.sent++;
     } catch (err) {
-      console.error(`Error sending email to ${student.email}:`, err.message);
+      console.error(`Error sending email to ${studentEmail}:`, err.message);
       results.failed++;
-    }
-  }
-
-  // Send summary email to faculty member if real SMTP configured
-  if (facultyEmail && !mailer.isSimulated) {
-    try {
-      await mailer.sendMail({
-        from: '"DatQuiz LMS" <no-reply@datquiz.edu>',
-        to: facultyEmail,
-        subject: `[Dispatch Summary] Invites Sent for ${quiz.quizCode} - ${quiz.title}`,
-        html: `<p>Invites processed: ${results.sent} sent, ${results.failed} failed.</p>`
-      });
-    } catch (err) {
-      console.error('Error sending faculty receipt:', err.message);
     }
   }
 

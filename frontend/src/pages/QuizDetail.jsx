@@ -97,18 +97,18 @@ export default function QuizDetail() {
 
   const handleSendInvites = async () => {
     setDispatching(true);
-    setStatusMsg({ type: 'info', text: 'Looping through roster and dispatching bulk Nodemailer magic link emails...' });
+    setStatusMsg({ type: 'info', text: 'Dispatching student email invites...' });
 
     try {
       const res = await api.post('/quiz/send-invites', {
         quizCode: quiz.quizCode,
-        facultyEmail: 'faculty@quizgenius.edu',
+        facultyEmail: 'faculty@datquiz.edu',
         frontendUrl: window.location.origin
       });
 
       setStatusMsg({
         type: 'success',
-        text: `Bulk Email Dispatch Complete! Sent ${res.data.results.sent} individual magic link emails + 1 Faculty Receipt summary.`
+        text: `Bulk Email Dispatch Complete! Sent ${res.data.results.sent} individual invitation emails.`
       });
     } catch (err) {
       console.error('Dispatch error:', err);
@@ -117,6 +117,7 @@ export default function QuizDetail() {
       setDispatching(false);
     }
   };
+
 
   const baseJoinUrl = `${window.location.origin}/#/join?code=${quiz?.quizCode}`;
 
@@ -268,7 +269,8 @@ export default function QuizDetail() {
                 <Mail className="w-5 h-5 text-brand-300" /> Bulk Nodemailer Invitations
               </h3>
               <p className="text-xs text-brand-100/90 leading-relaxed">
-                Loops through uploaded student emails and sends individual HTML magic links (`/#/join?code=...`) + receipt email to faculty.
+                Loops through uploaded student emails and sends individual HTML invitation links (`/#/join?code=...`).
+
               </p>
 
               <button
