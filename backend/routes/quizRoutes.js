@@ -109,19 +109,35 @@ router.put('/:code', (req, res) => {
     return res.status(404).json({ error: `Quiz code '${code}' not found.` });
   }
 
-  const { durationMinutes, marksPerQuestion, startTime, endTime } = req.body;
-  if (durationMinutes) store.quizzes[quizIndex].durationMinutes = parseInt(durationMinutes, 10);
-  if (marksPerQuestion) store.quizzes[quizIndex].marksPerQuestion = parseFloat(marksPerQuestion);
-  if (startTime !== undefined) store.quizzes[quizIndex].startTime = startTime;
-  if (endTime !== undefined) store.quizzes[quizIndex].endTime = endTime;
+  const targetQuiz = store.quizzes[quizIndex];
+  const { 
+    title, 
+    description, 
+    durationMinutes, 
+    marksPerQuestion, 
+    startTime, 
+    endTime, 
+    questionCount, 
+    maxTabSwitches 
+  } = req.body;
+
+  if (title !== undefined) targetQuiz.title = title;
+  if (description !== undefined) targetQuiz.description = description;
+  if (durationMinutes !== undefined) targetQuiz.durationMinutes = parseInt(durationMinutes, 10) || targetQuiz.durationMinutes;
+  if (marksPerQuestion !== undefined) targetQuiz.marksPerQuestion = parseFloat(marksPerQuestion) || targetQuiz.marksPerQuestion;
+  if (startTime !== undefined) targetQuiz.startTime = startTime;
+  if (endTime !== undefined) targetQuiz.endTime = endTime;
+  if (questionCount !== undefined) targetQuiz.questionCount = parseInt(questionCount, 10) || (targetQuiz.questions ? targetQuiz.questions.length : 0);
+  if (maxTabSwitches !== undefined) targetQuiz.maxTabSwitches = parseInt(maxTabSwitches, 10) >= 0 ? parseInt(maxTabSwitches, 10) : (targetQuiz.maxTabSwitches || 0);
 
   writeStore(store);
 
   return res.json({
     message: 'Quiz settings updated successfully.',
-    quiz: store.quizzes[quizIndex]
+    quiz: targetQuiz
   });
 });
+
 
 // Upload Student Roster Excel (.xlsx) for a quiz
 router.post('/:code/roster', upload.single('file'), (req, res) => {

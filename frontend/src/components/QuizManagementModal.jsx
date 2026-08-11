@@ -1,28 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import api from '../utils/api';
-import PrimaryButton from './PrimaryButton';
-import TextField from './TextField';
 import { 
-  X, QrCode, Copy, UploadCloud, FileSpreadsheet, Mail, 
-  Send, Trash2, ShieldAlert, CheckCircle2, RefreshCw, Eye, Download 
+  X, Copy, UploadCloud, FileSpreadsheet, Mail, 
+  Trash2, Download, Save, Clock, Calendar, Award, 
+  HelpCircle, ShieldAlert, CheckCircle2 
 } from 'lucide-react';
 
 export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefresh }) {
   const [activeTab, setActiveTab] = useState('Code'); // 'Code' | 'Settings' | 'Results'
   const [quiz, setQuiz] = useState(initialQuiz);
   const [submissions, setSubmissions] = useState([]);
-  const [rosterFile, setRosterFile] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [dispatching, setDispatching] = useState(false);
   const [copied, setCopied] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+  const fileInputRef = useRef(null);
+
+  // Editable settings state
+  const [durationMinutes, setDurationMinutes] = useState(initialQuiz?.durationMinutes || 30);
+  const [startTime, setStartTime] = useState(
+    initialQuiz?.startTime ? new Date(initialQuiz.startTime).toISOString().slice(0, 16) : ''
+  );
+  const [endTime, setEndTime] = useState(
+    initialQuiz?.endTime ? new Date(initialQuiz.endTime).toISOString().slice(0, 16) : ''
+  );
+  const [marksPerQuestion, setMarksPerQuestion] = useState(initialQuiz?.marksPerQuestion || 1);
+  const [questionCount, setQuestionCount] = useState(
+    initialQuiz?.questionCount || (initialQuiz?.questions ? initialQuiz.questions.length : 10)
+  );
+  const [maxTabSwitches, setMaxTabSwitches] = useState(initialQuiz?.maxTabSwitches ?? 0);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   useEffect(() => {
     if (quiz?.quizCode) {
       fetchSubmissions();
     }
   }, [quiz?.quizCode]);
+
+  useEffect(() => {
+    if (quiz) {
+      setDurationMinutes(quiz.durationMinutes || 30);
+      setStartTime(quiz.startTime ? new Date(quiz.startTime).toISOString().slice(0, 16) : '');
+      setEndTime(quiz.endTime ? new Date(quiz.endTime).toISOString().slice(0, 16) : '');
+      setMarksPerQuestion(quiz.marksPerQuestion || 1);
+      setQuestionCount(quiz.questionCount || (quiz.questions ? quiz.questions.length : 10));
+      setMaxTabSwitches(quiz.maxTabSwitches ?? 0);
+    }
+  }, [quiz]);
 
   const fetchSubmissions = async () => {
     try {
@@ -33,25 +57,59 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
     }
   };
 
-  const handleRosterUpload = async (e) => {
-    e.preventDefault();
-    if (!rosterFile) return;
+  // Instant dialog trigger & auto-upload for Excel Roster
+  const handleOpenFileDialog = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleRosterFileSelected = async (e) => {
+    const selectedFile = e.target.files[0];
+    if (!selectedFile) return;
 
     setStatusMsg({ type: 'info', text: 'Parsing Excel roster...' });
     const formData = new FormData();
-    formData.append('file', rosterFile);
+    formData.append('file', selectedFile);
 
     try {
       const res = await api.post(`/quiz/${quiz.quizCode}/roster`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setStatusMsg({ type: 'success', text: res.data.message });
-      setRosterFile(null);
       const updated = await api.get(`/quiz/${quiz.quizCode}`);
       setQuiz(updated.data.quiz);
       if (onRefresh) onRefresh();
     } catch (err) {
       setStatusMsg({ type: 'error', text: 'Failed to upload roster.' });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
+    setStatusMsg({ type: 'info', text: 'Saving quiz settings...' });
+
+    try {
+      const payload = {
+        durationMinutes: parseInt(durationMinutes, 10),
+        startTime: startTime ? new Date(startTime).toISOString() : quiz.startTime,
+        endTime: endTime ? new Date(endTime).toISOString() : quiz.endTime,
+        marksPerQuestion: parseFloat(marksPerQuestion),
+        questionCount: parseInt(questionCount, 10),
+        maxTabSwitches: parseInt(maxTabSwitches, 10)
+      };
+
+      const res = await api.put(`/quiz/${quiz.quizCode}`, payload);
+      setQuiz(res.data.quiz);
+      setStatusMsg({ type: 'success', text: 'Quiz settings updated successfully!' });
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      setStatusMsg({ type: 'error', text: 'Failed to update quiz settings.' });
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
@@ -95,8 +153,17 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
       
-      {/* Modal Container: max-w-[900px], max-h-[700px], bg-gray-50, rounded-3xl */}
-      <div className="max-w-[900px] w-full max-h-[700px] h-full bg-gray-50 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+      {/* Hidden File Input for Dialog Upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".xlsx,.xls,.csv"
+        onChange={handleRosterFileSelected}
+        className="hidden"
+      />
+
+      {/* Modal Container: max-w-[900px], max-h-[750px], bg-gray-50, rounded-3xl */}
+      <div className="max-w-[900px] w-full max-h-[750px] h-full bg-gray-50 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
         
         {/* Modal Header */}
         <div className="bg-white px-6 py-4 rounded-t-3xl flex justify-between items-center border-b border-gray-200 shrink-0">
@@ -128,7 +195,7 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
 
         {/* Status Alert Banner */}
         {statusMsg.text && (
-          <div className={`px-6 py-2 text-xs font-medium border-b ${
+          <div className={`px-6 py-2 text-xs font-medium border-b shrink-0 ${
             statusMsg.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
             statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
             'bg-orange-50 text-orange-800 border-orange-200'
@@ -142,93 +209,189 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
           
           {/* TAB 1: Quiz Code */}
           {activeTab === 'Code' && (
-            <div className="space-y-6 max-w-xl mx-auto">
+            <div className="space-y-6 max-w-md mx-auto py-4">
               
-              {/* Giant Typography for Join Code */}
-              <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm text-center">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Student Join Code</p>
-                <h1 className="text-[64px] font-bold text-orange-700 tracking-[8px] text-center leading-none">
-                  {quiz.quizCode}
-                </h1>
+              {/* Bigger QR Code with Join Code & Copy Link underneath */}
+              <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-md text-center flex flex-col items-center justify-center">
                 
-                <div className="flex items-center justify-center gap-3 mt-6">
+                {/* Bigger QR Code (220px) */}
+                <div className="p-3 bg-white border border-slate-100 rounded-2xl shadow-inner mb-4">
+                  <QRCodeSVG value={joinLink} size={220} level="H" />
+                </div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Scan to Join</p>
+                
+                {/* Join Code placed under QR code, a bit smaller */}
+                <div className="my-2">
+                  <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Quiz Code</p>
+                  <h2 className="text-3xl font-extrabold text-orange-700 tracking-[6px] uppercase">
+                    {quiz.quizCode}
+                  </h2>
+                </div>
+
+                <div className="mt-4">
                   <button
                     onClick={copyLink}
-                    className="px-4 py-2 bg-orange-50 text-orange-700 hover:bg-orange-100 font-bold text-xs rounded-lg border border-orange-200 flex items-center gap-1.5 transition-colors"
+                    className="px-5 py-2.5 bg-orange-50 text-orange-700 hover:bg-orange-100 font-bold text-xs rounded-xl border border-orange-200 flex items-center gap-2 transition-all shadow-sm active:scale-95"
                   >
                     <Copy className="w-4 h-4" /> {copied ? 'Copied Magic Link!' : 'Copy Magic Link'}
                   </button>
                 </div>
-              </div>
 
-              {/* QR Code and Roster Box */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 text-center flex flex-col items-center justify-center">
-                  <QRCodeSVG value={joinLink} size={140} level="H" />
-                  <p className="text-xs font-bold text-gray-500 mt-3">Scan to Join</p>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 flex flex-col justify-between space-y-4">
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
-                      <FileSpreadsheet className="w-4 h-4 text-orange-700" /> Excel Roster (.xlsx)
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {quiz.roster?.length || 0} Students Uploaded
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleRosterUpload} className="space-y-2">
-                    <input
-                      type="file"
-                      accept=".xlsx"
-                      onChange={(e) => setRosterFile(e.target.files[0])}
-                      className="text-xs w-full"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!rosterFile}
-                      className="w-full py-2 bg-orange-700 text-white rounded-lg font-bold text-xs hover:bg-orange-800 disabled:opacity-40"
-                    >
-                      Upload Roster
-                    </button>
-                  </form>
-
-                  <button
-                    onClick={handleSendInvites}
-                    disabled={dispatching || !quiz.roster || quiz.roster.length === 0}
-                    className="w-full py-2.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg font-bold text-xs hover:bg-orange-100 flex items-center justify-center gap-1.5"
-                  >
-                    <Mail className="w-4 h-4" /> Send Nodemailer Invites
-                  </button>
-                </div>
               </div>
 
             </div>
           )}
 
-          {/* TAB 2: Settings */}
+          {/* TAB 2: Settings (Includes Excel Roster & Editable Quiz Options) */}
           {activeTab === 'Settings' && (
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-4 max-w-lg mx-auto">
-              <h3 className="text-xl font-bold text-orange-700 border-b border-gray-200 pb-3">Quiz Settings</h3>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase">Quiz Title</label>
-                <p className="text-base font-bold text-slate-900 mt-0.5">{quiz.title}</p>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase">Instructions</label>
-                <p className="text-xs text-slate-600 mt-0.5">{quiz.description || 'No special instructions.'}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase">Duration</label>
-                  <p className="text-lg font-bold text-orange-700">{quiz.durationMinutes || 30} Mins</p>
+            <div className="space-y-6 max-w-2xl mx-auto">
+              
+              {/* Excel Roster Management Card */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-orange-100/80 text-orange-700">
+                      <FileSpreadsheet className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-slate-900">Excel Student Roster</h3>
+                      <p className="text-xs text-gray-500">
+                        {quiz.roster?.length || 0} Students currently uploaded
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-orange-50 text-orange-700 font-bold text-xs rounded-full border border-orange-200">
+                    {quiz.roster?.length || 0} Registered
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase">Marks Per Qn</label>
-                  <p className="text-lg font-bold text-orange-700">{quiz.marksPerQuestion || 1} Marks</p>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleOpenFileDialog}
+                    className="flex-1 py-3 px-4 bg-orange-700 hover:bg-orange-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    <UploadCloud className="w-4 h-4" /> Upload Excel Roster (.xlsx)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSendInvites}
+                    disabled={dispatching || !quiz.roster || quiz.roster.length === 0}
+                    className="py-3 px-4 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs rounded-xl border border-orange-200 shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+                  >
+                    <Mail className="w-4 h-4" /> {dispatching ? 'Sending...' : 'Send Bulk Invites'}
+                  </button>
                 </div>
               </div>
+
+              {/* Editable Quiz Settings Form */}
+              <form onSubmit={handleSaveSettings} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-5">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <h3 className="text-lg font-bold text-slate-900">Quiz Configurations</h3>
+                  <button
+                    type="submit"
+                    disabled={isSavingSettings}
+                    className="py-2 px-4 bg-orange-700 hover:bg-orange-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSavingSettings ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {/* Duration */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-orange-700" /> Duration (Minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={durationMinutes}
+                      onChange={(e) => setDurationMinutes(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-600"
+                    />
+                  </div>
+
+                  {/* Marks Per Question */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Award className="w-3.5 h-3.5 text-orange-700" /> Marks Per Question
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      required
+                      value={marksPerQuestion}
+                      onChange={(e) => setMarksPerQuestion(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-600"
+                    />
+                  </div>
+
+                  {/* How Many Questions */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <HelpCircle className="w-3.5 h-3.5 text-orange-700" /> Total Question Count
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={questionCount}
+                      onChange={(e) => setQuestionCount(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-600"
+                    />
+                  </div>
+
+                  {/* Allowed Tab Switches */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <ShieldAlert className="w-3.5 h-3.5 text-orange-700" /> Allowed Tab Switches
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={maxTabSwitches}
+                      onChange={(e) => setMaxTabSwitches(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-600"
+                    />
+                    <span className="text-[11px] text-gray-400 font-medium">0 = Zero tolerance (Strict)</span>
+                  </div>
+
+                  {/* Start Time */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-orange-700" /> Start Window / Date Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-600"
+                    />
+                  </div>
+
+                  {/* End Time */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-orange-700" /> End Window / Date Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-600"
+                    />
+                  </div>
+
+                </div>
+              </form>
+
             </div>
           )}
 
@@ -296,7 +459,6 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          {/* Leading Circle Avatar: bg-red-500 text-white if flagged */}
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
                             isFlagged ? 'bg-red-500 text-white' : 'bg-orange-100 text-orange-700'
                           }`}>
@@ -318,7 +480,6 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
                         </div>
 
                         <div className="flex items-center gap-4">
-                          {/* Score text: text-red-600 font-bold if flagged */}
                           <span className={`text-base ${isFlagged ? 'text-red-600 font-bold' : 'font-bold text-slate-900'}`}>
                             {sub.score} / {sub.totalPossible}
                           </span>
