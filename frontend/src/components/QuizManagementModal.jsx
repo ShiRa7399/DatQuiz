@@ -154,21 +154,40 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
   };
 
   const handleSendInvites = async () => {
+    if (!quiz.roster || quiz.roster.length === 0) {
+      setStatusMsg({ type: 'error', text: 'Please upload an Excel roster first before sending invites.' });
+      return;
+    }
+
     setDispatching(true);
-    setStatusMsg({ type: 'info', text: 'Dispatching Nodemailer emails...' });
+    setStatusMsg({ type: 'info', text: 'Dispatching student email invites...' });
     try {
       const res = await api.post('/quiz/send-invites', {
         quizCode: quiz.quizCode,
-        facultyEmail: 'faculty@quizgenius.edu',
+        facultyEmail: 'faculty@datquiz.edu',
         frontendUrl: window.location.origin
       });
-      setStatusMsg({ type: 'success', text: `Sent ${res.data.results.sent} individual magic link emails!` });
+
+      const results = res.data.results;
+      if (results?.simulated) {
+        setStatusMsg({ 
+          type: 'success', 
+          text: `Processed ${results.sent} student invite emails! (Simulation Mode: Set EMAIL_USER and EMAIL_PASS in Render env for live SMTP delivery).` 
+        });
+      } else {
+        setStatusMsg({ 
+          type: 'success', 
+          text: `Successfully sent ${results.sent} magic link invitation emails to students!` 
+        });
+      }
     } catch (err) {
-      setStatusMsg({ type: 'error', text: 'Failed to send bulk invites.' });
+      console.error('Send invites error:', err);
+      setStatusMsg({ type: 'error', text: err.response?.data?.error || 'Failed to send bulk invites.' });
     } finally {
       setDispatching(false);
     }
   };
+
 
   const handleRevoke = async (regNo) => {
     if (!window.confirm(`Revoke attempt for student ${regNo}?`)) return;
