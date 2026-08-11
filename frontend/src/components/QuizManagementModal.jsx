@@ -39,6 +39,20 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
     }
   }, [quiz?.quizCode]);
 
+  // Real-time auto-polling when Results tab is active
+  useEffect(() => {
+    let interval;
+    if (activeTab === 'Results' && quiz?.quizCode) {
+      fetchSubmissions();
+      interval = setInterval(() => {
+        fetchSubmissions();
+      }, 3000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeTab, quiz?.quizCode]);
+
   useEffect(() => {
     if (quiz) {
       setDurationMinutes(quiz.durationMinutes || 30);
@@ -51,6 +65,7 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
       setShowMarksToStudents(!!quiz.showMarksToStudents);
     }
   }, [quiz]);
+
 
 
   const fetchSubmissions = async () => {
@@ -479,10 +494,51 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
 
           {/* TAB 3: Results */}
           {activeTab === 'Results' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-orange-700">Submissions & Anti-Cheat Tally</h3>
+            <div className="space-y-6">
+              
+              {/* REAL-TIME ATTENDANCE TRACKER BANNER */}
+              <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 rounded-3xl p-6 text-white shadow-lg space-y-3 relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-orange-100">
+                      Real-Time Attendance Tracker
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-extrabold bg-white/20 px-3 py-1 rounded-full text-white backdrop-blur-xs">
+                    🔴 LIVE POLLING
+                  </span>
+                </div>
+
+                <div className="flex items-baseline justify-between pt-1">
+                  <div>
+                    <h2 className="text-4xl font-black tracking-tight">
+                      {quiz.roster && quiz.roster.length > 0 
+                        ? `${submissions.length} / ${quiz.roster.length}`
+                        : `${submissions.length}`}
+                    </h2>
+                    <p className="text-xs font-bold text-orange-100 mt-1">
+                      {quiz.roster && quiz.roster.length > 0
+                        ? `Students Attended Out Of ${quiz.roster.length} Uploaded (${((submissions.length / (quiz.roster.length || 1)) * 100).toFixed(0)}% Attendance)`
+                        : `Total Students Attended So Far`}
+                    </p>
+                  </div>
+                </div>
+
+                {quiz.roster && quiz.roster.length > 0 && (
+                  <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden p-0.5 border border-white/20 mt-2">
+                    <div 
+                      className="bg-emerald-400 h-full rounded-full transition-all duration-500 shadow-sm"
+                      style={{ width: `${Math.min(100, (submissions.length / quiz.roster.length) * 100)}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <h3 className="text-base font-extrabold text-slate-900">Submissions & Anti-Cheat Log</h3>
                 <div className="flex gap-2">
+
                   <button
                     onClick={async () => {
                       try {
