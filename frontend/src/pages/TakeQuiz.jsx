@@ -290,6 +290,7 @@ export default function TakeQuiz() {
                 const letter = String.fromCharCode(65 + optIdx);
                 const isSelected = selectedOpt === letter;
                 const isCorrect = letter === currentQ?.correctAnswer;
+                const cleanOptText = opt.replace(/^[A-D][\.\:\)]\s*/i, '');
 
                 let buttonClass = 'bg-brand-50/40 text-slate-800 border-slate-200 hover:border-brand-400 hover:bg-white';
                 let letterClass = 'bg-slate-200 text-slate-700';
@@ -321,7 +322,7 @@ export default function TakeQuiz() {
                       <span className={`w-7 h-7 rounded-lg text-xs flex items-center justify-center font-extrabold ${letterClass}`}>
                         {letter}
                       </span>
-                      {opt.replace(/^[A-D][\.\:\)]\s*/, '')}
+                      <span>{cleanOptText}</span>
                     </span>
 
                     {isPracticeMode && isRevealed ? (
@@ -439,17 +440,21 @@ export default function TakeQuiz() {
               {questions.map((q, idx) => {
                 const isAnswered = !!userAnswers[q.id];
                 const isCurrent = currentIdx === idx;
+                const isSkipped = !isAnswered && idx < currentIdx;
+
+                let paletteColor = 'bg-white text-slate-700 border border-slate-300'; // White = Not Visited
+                if (isAnswered) {
+                  paletteColor = 'bg-blue-600 text-white border-blue-600 shadow-sm'; // Blue = Answered
+                } else if (isSkipped) {
+                  paletteColor = 'bg-red-500 text-white border-red-500 shadow-sm'; // Red = Skipped
+                }
 
                 return (
                   <button
                     key={q.id || idx}
                     onClick={() => setCurrentIdx(idx)}
-                    className={`h-10 rounded-xl font-bold text-xs transition-all ${
-                      isCurrent
-                        ? 'bg-slate-900 text-white ring-2 ring-brand-600'
-                        : isAnswered
-                        ? 'bg-brand-600 text-white'
-                        : 'bg-brand-50 text-slate-600 hover:bg-brand-100 border border-brand-200'
+                    className={`h-10 rounded-xl font-bold text-xs transition-all ${paletteColor} ${
+                      isCurrent ? 'ring-2 ring-slate-900 font-extrabold scale-105' : ''
                     }`}
                   >
                     {idx + 1}
@@ -458,16 +463,24 @@ export default function TakeQuiz() {
               })}
             </div>
 
-            <div className="pt-3 border-t border-slate-100 space-y-2 text-[11px] font-medium text-slate-500">
+            {/* Legend */}
+            <div className="pt-3 border-t border-slate-100 space-y-2 text-[11px] font-semibold text-slate-600">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-brand-600"></div> Answered
+                <div className="w-3.5 h-3.5 rounded-md bg-blue-600 shrink-0"></div>
+                <span>Blue = Answered</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-brand-50 border border-brand-200"></div> Unanswered
+                <div className="w-3.5 h-3.5 rounded-md bg-white border border-slate-300 shrink-0"></div>
+                <span>White = Not Visited</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3.5 h-3.5 rounded-md bg-red-500 shrink-0"></div>
+                <span>Red = Skipped</span>
               </div>
             </div>
           </div>
         </div>
+
 
       </div>
 

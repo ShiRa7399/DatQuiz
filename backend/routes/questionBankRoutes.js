@@ -96,6 +96,26 @@ router.post('/', (req, res) => {
   return res.json({ questionBank: newBank });
 });
 
+// Edit individual question in Question Bank
+router.put('/:id/question/:qId', (req, res) => {
+  const store = readStore();
+  const bank = store.questionBanks.find(b => b.id === req.params.id);
+  if (!bank) return res.status(404).json({ error: 'Question Bank not found.' });
+
+  const qIndex = bank.questions.findIndex(q => q.id === req.params.qId);
+  if (qIndex === -1) return res.status(404).json({ error: 'Question ID not found.' });
+
+  const { question, options, correctAnswer, explanation, marks } = req.body;
+  if (question !== undefined) bank.questions[qIndex].question = question;
+  if (options && Array.isArray(options)) bank.questions[qIndex].options = options;
+  if (correctAnswer !== undefined) bank.questions[qIndex].correctAnswer = correctAnswer;
+  if (explanation !== undefined) bank.questions[qIndex].explanation = explanation;
+  if (marks !== undefined) bank.questions[qIndex].marks = parseInt(marks, 10) || 1;
+
+  writeStore(store);
+  return res.json({ message: 'Question updated successfully.', questionBank: bank });
+});
+
 // Delete individual question from Question Bank
 router.delete('/:id/question/:qId', (req, res) => {
   const store = readStore();
@@ -112,6 +132,7 @@ router.delete('/:id/question/:qId', (req, res) => {
   writeStore(store);
   return res.json({ message: 'Question deleted successfully.', questionBank: bank });
 });
+
 
 // Delete entire Question Bank (deletes from store AND Cloud Firestore DB)
 router.delete('/:id', async (req, res) => {

@@ -10,7 +10,7 @@ async function parseQuestionsFromBuffer(buffer, mimeType, originalName) {
 
   if (apiKey) {
     try {
-      console.log('🤖 Attempting AI PDF extraction via Gemini 1.5 Flash...');
+      console.log('🤖 Attempting AI PDF extraction via Gemini AI...');
       const questions = await parseWithGeminiAI(buffer, mimeType, originalName, apiKey);
       if (questions && questions.length > 0) {
         console.log(`✨ Gemini AI successfully extracted ${questions.length} questions!`);
@@ -28,69 +28,95 @@ async function parseQuestionsFromBuffer(buffer, mimeType, originalName) {
 }
 
 /**
- * AI-powered PDF & document parser using Gemini 1.5 Flash
+ * AI-powered PDF & document parser using Gemini Flash AI
  */
 async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  
+  // Try standard model names
+  let model;
+  const modelNames = ["gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"];
+  let lastErr;
 
   const isPdf = mimeType === 'application/pdf' || (originalName && originalName.endsWith('.pdf'));
   const effectiveMimeType = isPdf ? 'application/pdf' : 'text/plain';
-
   const base64Data = buffer.toString('base64');
 
   const prompt = `You are an expert exam creator and document parser. Extract ALL multiple-choice questions (MCQs) from this uploaded document.
-Return ONLY a valid JSON array of question objects matching this exact format with no extra markdown text outside the JSON array:
+CRITICAL INSTRUCTIONS:
+1. IGNORE cover page titles, header banners, university/school names, dates, course codes, exam instructions, total marks headers, and page footers. DO NOT extract document title as a question!
+2. Extract ONLY actual multiple-choice test questions.
+3. "options" must be an array of 4 clean choice text strings WITHOUT prefixing "A)" or "Option A". E.g.: ["Choice 1", "Choice 2", "Choice 3", "Choice 4"].
+4. "correctAnswer" must be a single uppercase letter: "A", "B", "C", or "D".
+5. Return ONLY a valid JSON array of question objects matching this exact format:
 
 [
   {
     "id": "q_1",
-    "question": "Exact question text goes here",
+    "question": "Which protocol is used for secure web browsing?",
     "options": [
-      "A) Option text 1",
-      "B) Option text 2",
-      "C) Option text 3",
-      "D) Option text 4"
+      "HTTP",
+      "HTTPS",
+      "FTP",
+      "SMTP"
     ],
-    "correctAnswer": "A",
+    "correctAnswer": "B",
     "marks": 1,
-    "explanation": "Detailed explanation of the correct answer"
+    "explanation": "HTTPS provides SSL/TLS encryption for web traffic."
   }
 ]
 
-Rules:
-1. "options" must be an array of exactly 4 strings formatted as "A) ...", "B) ...", "C) ...", "D) ...".
-2. "correctAnswer" must be a single uppercase letter: "A", "B", "C", or "D".
-3. "marks" must be an integer (default 1).
-4. Extract every question accurately. Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain text.`;
+Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain text without surrounding commentary.`;
 
-  const result = await model.generateContent([
-    {
-      inlineData: {
-        data: base64Data,
-        mimeType: effectiveMimeType
+  for (const mName of modelNames) {
+    try {
+      model = genAI.getGenerativeModel({ model: mName });
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType: effectiveMimeType
+          }
+        },
+        prompt
+      ]);
+
+      const text = result.response.text();
+      const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+      const parsed = JSON.parse(cleanedText);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((q, idx) => {
+          const rawOpts = Array.isArray(q.options) ? q.options : [];
+          const cleanOpts = rawOpts.map((opt, oIdx) => {
+            const str = String(opt || '').trim();
+            return str.replace(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*/i, '').trim() || `Option ${String.fromCharCode(65 + oIdx)}`;
+          });
+
+          while (cleanOpts.length < 4) {
+            cleanOpts.push(`Option ${String.fromCharCode(65 + cleanOpts.length)}`);
+          }
+
+          let ansLetter = (q.correctAnswer || 'A').toString().trim().toUpperCase().charAt(0);
+          if (!['A', 'B', 'C', 'D'].includes(ansLetter)) ansLetter = 'A';
+
+          return {
+            id: q.id || `q_gemini_${Date.now()}_${idx}`,
+            question: q.question || `Question ${idx + 1}`,
+            options: cleanOpts.slice(0, 4),
+            correctAnswer: ansLetter,
+            marks: parseInt(q.marks, 10) || 1,
+            explanation: q.explanation || 'Refer to study material.'
+          };
+        });
       }
-    },
-    prompt
-  ]);
-
-  const text = result.response.text();
-  const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
-  const parsed = JSON.parse(cleanedText);
-  if (Array.isArray(parsed) && parsed.length > 0) {
-    return parsed.map((q, idx) => ({
-      id: q.id || `q_gemini_${Date.now()}_${idx}`,
-      question: q.question || `Question ${idx + 1}`,
-      options: Array.isArray(q.options) && q.options.length >= 2 
-        ? q.options.slice(0, 4) 
-        : ['Option A', 'Option B', 'Option C', 'Option D'],
-      correctAnswer: (q.correctAnswer || 'A').toString().trim().toUpperCase().charAt(0),
-      marks: parseInt(q.marks, 10) || 1,
-      explanation: q.explanation || 'Refer to study material.'
-    }));
+    } catch (err) {
+      lastErr = err;
+      console.warn(`Model ${mName} attempt note:`, err.message);
+    }
   }
 
+  if (lastErr) throw lastErr;
   return [];
 }
 
@@ -129,52 +155,78 @@ function parseTextToQuestions(text) {
 
   const cleanedInput = text.replace(/%PDF-[\s\S]*?%%EOF/gi, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
   const cleanedText = cleanedInput.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Skip document header block if present
+  let lines = cleanedText.split('\n').map(l => l.trim()).filter(Boolean);
   
-  const blocks = cleanedText.split(/(?=\n(?:Q\d+|Question\d+|\d+[\.\)])\s*)/i).filter(b => b.trim().length > 0);
+  // Filter out top header noise lines before Question 1
+  let startIndex = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.match(/^(?:Q\d+|Question\s*\d+|\d+[\.\)])\s*/i)) {
+      startIndex = i;
+      break;
+    }
+  }
+
+  const remainingText = lines.slice(startIndex).join('\n');
+  const blocks = remainingText.split(/(?=\n(?:Q\d+|Question\d+|\d+[\.\)])\s*)/i).filter(b => b.trim().length > 0);
 
   blocks.forEach((block, index) => {
-    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length === 0) return;
+    const blockLines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (blockLines.length === 0) return;
 
-    let questionText = lines[0];
+    let questionText = blockLines[0];
     questionText = questionText.replace(/^(?:Q\d+[:\.]?|Question\s*\d+[:\.]?|\d+[\.\)])\s*/i, '').trim();
 
-    let options = [];
+    // Ignore if question text looks like a document title or header banner
+    if (
+      questionText.toLowerCase().includes('midterm') || 
+      questionText.toLowerCase().includes('final exam') || 
+      questionText.toLowerCase().includes('university') ||
+      questionText.toLowerCase().includes('total marks') ||
+      questionText.length < 5
+    ) {
+      return;
+    }
+
+    let rawOptions = [];
     let correctAnswer = '';
     let explanation = '';
     let marks = 1;
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
+    for (let i = 1; i < blockLines.length; i++) {
+      const line = blockLines[i];
 
-      const optionMatch = line.match(/^(?:[A-D]|\([A-D]\))[\.\:\)]\s*(.*)/i);
+      const optionMatch = line.match(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*(.*)/i);
       const answerMatch = line.match(/^(?:Answer|Correct Answer|Ans)[:\.\s]*(.*)/i);
       const marksMatch = line.match(/^(?:Marks|Points)[:\.\s]*(\d+)/i);
       const expMatch = line.match(/^(?:Explanation)[:\.\s]*(.*)/i);
 
       if (optionMatch) {
-        options.push(optionMatch[1].trim());
+        rawOptions.push(optionMatch[1].trim());
       } else if (answerMatch) {
         correctAnswer = answerMatch[1].trim().toUpperCase();
-        if (correctAnswer.startsWith('A')) correctAnswer = 'A';
-        else if (correctAnswer.startsWith('B')) correctAnswer = 'B';
-        else if (correctAnswer.startsWith('C')) correctAnswer = 'C';
-        else if (correctAnswer.startsWith('D')) correctAnswer = 'D';
+        if (correctAnswer.includes('A')) correctAnswer = 'A';
+        else if (correctAnswer.includes('B')) correctAnswer = 'B';
+        else if (correctAnswer.includes('C')) correctAnswer = 'C';
+        else if (correctAnswer.includes('D')) correctAnswer = 'D';
       } else if (marksMatch) {
         marks = parseInt(marksMatch[1], 10) || 1;
       } else if (expMatch) {
         explanation = expMatch[1].trim();
-      } else if (options.length === 0) {
+      } else if (rawOptions.length === 0) {
         questionText += ' ' + line;
       }
     }
 
-    if (options.length < 2) {
-      options = ['Option A', 'Option B', 'Option C', 'Option D'];
-    }
+    const cleanOptions = rawOptions.map((opt, oIdx) => {
+      const str = String(opt || '').trim();
+      return str.replace(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*/i, '').trim() || `Option ${String.fromCharCode(65 + oIdx)}`;
+    });
 
-    while (options.length < 4) {
-      options.push(`Option ${String.fromCharCode(65 + options.length)}`);
+    while (cleanOptions.length < 4) {
+      cleanOptions.push(`Option ${String.fromCharCode(65 + cleanOptions.length)}`);
     }
 
     if (!correctAnswer || !['A', 'B', 'C', 'D'].includes(correctAnswer)) {
@@ -183,8 +235,8 @@ function parseTextToQuestions(text) {
 
     questions.push({
       id: `q_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 4)}`,
-      question: questionText || `Sample Question ${index + 1}`,
-      options: options.slice(0, 4),
+      question: questionText || `Question ${index + 1}`,
+      options: cleanOptions.slice(0, 4),
       correctAnswer,
       marks,
       explanation: explanation || 'Refer to study material.'
@@ -196,10 +248,10 @@ function parseTextToQuestions(text) {
       id: `q_${Date.now()}_1`,
       question: "Sample Question 1: What is the primary role of an LMS?",
       options: [
-        "A) Managing courses & assessment",
-        "B) Operating system kernel",
-        "C) Database indexer",
-        "D) Hardware firmware"
+        "Managing courses & assessment",
+        "Operating system kernel",
+        "Database indexer",
+        "Hardware firmware"
       ],
       correctAnswer: "A",
       marks: 1,

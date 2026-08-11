@@ -2,17 +2,20 @@ import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { 
   BookOpen, UploadCloud, FileText, Trash2, CheckCircle2, 
-  Plus, AlertCircle, HelpCircle, Eye, Sparkles
+  Plus, AlertCircle, HelpCircle, Eye, Sparkles, Edit3
 } from 'lucide-react';
+import EditQuestionModal from '../components/EditQuestionModal';
 
 export default function QuestionBanks() {
   const [banks, setBanks] = useState([]);
   const [selectedBank, setSelectedBank] = useState(null);
+  const [editingQuestion, setEditingQuestion] = useState(null);
   const [files, setFiles] = useState([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+
 
   // Manual Question state
   const [newQuestionText, setNewQuestionText] = useState('');
@@ -211,13 +214,22 @@ export default function QuestionBanks() {
                         <h4 className="font-extrabold text-sm text-slate-900">
                           {idx + 1}. {q.question}
                         </h4>
-                        <button
-                          onClick={() => handleDeleteQuestion(selectedBank.id, q.id)}
-                          className="text-slate-400 hover:text-red-600 p-1 rounded transition-colors"
-                          title="Delete Question"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => setEditingQuestion(q)}
+                            className="text-slate-400 hover:text-blue-600 p-1 rounded transition-colors"
+                            title="Edit Question"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteQuestion(selectedBank.id, q.id)}
+                            className="text-slate-400 hover:text-red-600 p-1 rounded transition-colors"
+                            title="Delete Question"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
@@ -233,6 +245,7 @@ export default function QuestionBanks() {
                                   : 'bg-white border-slate-200 text-slate-700'
                               }`}
                             >
+                              <span className="font-extrabold text-orange-700 mr-1 font-mono">{letter}.</span>
                               {opt}
                             </div>
                           );
@@ -255,6 +268,19 @@ export default function QuestionBanks() {
         </div>
 
       </div>
+
+      {editingQuestion && selectedBank && (
+        <EditQuestionModal
+          bankId={selectedBank.id}
+          question={editingQuestion}
+          onClose={() => setEditingQuestion(null)}
+          onSaveSuccess={(updatedBank) => {
+            if (updatedBank) setSelectedBank(updatedBank);
+            fetchQuestionBanks();
+          }}
+        />
+      )}
     </div>
   );
 }
+

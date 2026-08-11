@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import api from '../utils/api';
-import { X, Trash2, FileText, CheckCircle2, HelpCircle } from 'lucide-react';
+import { X, Trash2, FileText, CheckCircle2, HelpCircle, Edit3 } from 'lucide-react';
+import EditQuestionModal from './EditQuestionModal';
 
 export default function QuestionBankViewModal({ bank: initialBank, onClose, onRefresh }) {
   const [bank, setBank] = useState(initialBank);
   const [deletingId, setDeletingId] = useState(null);
+  const [editingQuestion, setEditingQuestion] = useState(null);
 
   const handleDeleteQuestion = async (questionId) => {
     if (!window.confirm('Delete this question from the question bank?')) return;
@@ -20,6 +22,13 @@ export default function QuestionBankViewModal({ bank: initialBank, onClose, onRe
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleSaveEditedQuestion = (updatedBank) => {
+    if (updatedBank && updatedBank.questions) {
+      setBank(updatedBank);
+    }
+    if (onRefresh) onRefresh();
   };
 
   if (!bank) return null;
@@ -60,22 +69,32 @@ export default function QuestionBankViewModal({ bank: initialBank, onClose, onRe
                 key={q.id || idx}
                 className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs relative space-y-3"
               >
-                {/* Header: Question Number & Delete Button */}
+                {/* Header: Question Number & Action Buttons */}
                 <div className="flex items-start justify-between gap-4">
                   <h3 className="font-bold text-slate-900 text-base leading-snug">
                     <span className="text-[#e65c00] font-extrabold mr-1.5">{idx + 1}.</span>
                     {q.question}
                   </h3>
 
-                  <button
-                    onClick={() => handleDeleteQuestion(q.id)}
-                    disabled={deletingId === q.id}
-                    title="Delete Question"
-                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setEditingQuestion(q)}
+                      title="Edit Question"
+                      className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteQuestion(q.id)}
+                      disabled={deletingId === q.id}
+                      title="Delete Question"
+                      className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+
 
                 {/* Options 2x2 Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
@@ -123,7 +142,7 @@ export default function QuestionBankViewModal({ bank: initialBank, onClose, onRe
 
         {/* Modal Footer */}
         <div className="px-6 py-3 bg-white border-t border-gray-200 flex justify-between items-center text-xs text-slate-500">
-          <span>Click the trash icon to delete any unwanted question.</span>
+          <span>Click the pencil icon to edit or trash icon to delete any question.</span>
           <button
             onClick={onClose}
             className="px-5 py-2 bg-[#e65c00] text-white font-bold rounded-xl hover:bg-[#c85000] transition-colors"
@@ -133,6 +152,16 @@ export default function QuestionBankViewModal({ bank: initialBank, onClose, onRe
         </div>
 
       </div>
+
+      {editingQuestion && (
+        <EditQuestionModal
+          bankId={bank.id}
+          question={editingQuestion}
+          onClose={() => setEditingQuestion(null)}
+          onSaveSuccess={handleSaveEditedQuestion}
+        />
+      )}
     </div>
   );
 }
+
