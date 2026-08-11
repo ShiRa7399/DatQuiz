@@ -28,7 +28,9 @@ const handleCreateQuiz = (req, res) => {
     marksPerQuestion,
     questionBankId,
     customQuestions,
-    facultyId
+    facultyId,
+    isPracticeMode,
+    showMarksToStudents
   } = req.body;
 
   if (!title) return res.status(400).json({ error: 'Quiz title is required.' });
@@ -63,6 +65,8 @@ const handleCreateQuiz = (req, res) => {
     durationMinutes: parseInt(durationMinutes, 10) || 30,
     marksPerQuestion: parseInt(marksPerQuestion, 10) || 1,
     questionBankId: questionBankId || null,
+    isPracticeMode: !!isPracticeMode,
+    showMarksToStudents: showMarksToStudents !== undefined ? !!showMarksToStudents : false,
     questions,
     roster: [],
     createdAt: new Date().toISOString()
@@ -118,7 +122,9 @@ router.put('/:code', (req, res) => {
     startTime, 
     endTime, 
     questionCount, 
-    maxTabSwitches 
+    maxTabSwitches,
+    isPracticeMode,
+    showMarksToStudents
   } = req.body;
 
   if (title !== undefined) targetQuiz.title = title;
@@ -130,6 +136,8 @@ router.put('/:code', (req, res) => {
   if (questionCount !== undefined) targetQuiz.questionCount = parseInt(questionCount, 10) || (targetQuiz.questions ? targetQuiz.questions.length : 0);
   if (maxTabSwitches !== undefined) targetQuiz.maxTabSwitches = parseInt(maxTabSwitches, 10) >= 0 ? parseInt(maxTabSwitches, 10) : (targetQuiz.maxTabSwitches || 0);
   if (req.body.isStopped !== undefined) targetQuiz.isStopped = !!req.body.isStopped;
+  if (isPracticeMode !== undefined) targetQuiz.isPracticeMode = !!isPracticeMode;
+  if (showMarksToStudents !== undefined) targetQuiz.showMarksToStudents = !!showMarksToStudents;
 
   writeStore(store);
 
@@ -138,6 +146,7 @@ router.put('/:code', (req, res) => {
     quiz: targetQuiz
   });
 });
+
 
 // Force Stop Quiz handler
 router.post('/:code/stop', (req, res) => {

@@ -16,6 +16,9 @@ export default function CreateQuiz() {
   const [description, setDescription] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [marksPerQuestion, setMarksPerQuestion] = useState(1);
+  const [isPracticeMode, setIsPracticeMode] = useState(false);
+  const [showMarksToStudents, setShowMarksToStudents] = useState(false);
+
 
   const [allBanks, setAllBanks] = useState([]);
   const [selectedBankIds, setSelectedBankIds] = useState([]);
@@ -173,8 +176,11 @@ export default function CreateQuiz() {
         marksPerQuestion: Number(marksPerQuestion) || 1,
         startTime: startTime ? new Date(startTime).toISOString() : new Date().toISOString(),
         endTime: endTime ? new Date(endTime).toISOString() : null,
+        isPracticeMode: !!isPracticeMode,
+        showMarksToStudents: !!showMarksToStudents,
         customQuestions: finalQuestions
       };
+
 
       await api.post('/quiz', payload);
       navigate('/dashboard');
@@ -430,7 +436,37 @@ export default function CreateQuiz() {
                 </div>
               </div>
 
+              {/* Assessment Mode Options */}
+              <div className="space-y-3 bg-orange-50/50 border border-orange-100 p-4 rounded-2xl">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPracticeMode}
+                    onChange={(e) => setIsPracticeMode(e.target.checked)}
+                    className="w-4 h-4 text-[#e65c00] rounded focus:ring-orange-500 accent-[#e65c00]"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Enable Practice Mode</span>
+                    <span className="text-[11px] text-slate-500 block">Shows immediate correct answer & explanation right after selecting each option.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 cursor-pointer pt-2 border-t border-orange-100/80">
+                  <input
+                    type="checkbox"
+                    checked={showMarksToStudents}
+                    onChange={(e) => setShowMarksToStudents(e.target.checked)}
+                    className="w-4 h-4 text-[#e65c00] rounded focus:ring-orange-500 accent-[#e65c00]"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Show Marks to Students After Exam (Default: Off)</span>
+                    <span className="text-[11px] text-slate-500 block">If enabled, displays total score obtained on the final completion screen.</span>
+                  </div>
+                </label>
+              </div>
+
               <hr className="border-slate-100" />
+
 
               {/* Question Sampling by Bank */}
               <div>

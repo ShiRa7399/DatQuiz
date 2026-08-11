@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import api from '../utils/api';
 import { 
-  Zap, Clock, ShieldAlert, CheckCircle2, ArrowRight, 
-  ArrowLeft, Send, AlertTriangle, Lock
+  Zap, Clock, ShieldAlert, CheckCircle2, XCircle, ArrowRight, 
+  ArrowLeft, Send, AlertTriangle, Lock, HelpCircle
 } from 'lucide-react';
 
 export default function TakeQuiz() {
@@ -24,8 +24,10 @@ export default function TakeQuiz() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedResult, setSubmittedResult] = useState(null);
-
   const submissionLock = useRef(false);
+
+  // Practice mode state
+  const [revealedQuestions, setRevealedQuestions] = useState({});
 
   useEffect(() => {
     const raw = sessionStorage.getItem('active_student');
@@ -42,7 +44,6 @@ export default function TakeQuiz() {
 
   // Anti-Cheat Event Listeners
   useEffect(() => {
-    // Tab visibility change detector
     const handleVisibilityChange = () => {
       if (document.hidden && !submissionLock.current) {
         setTabSwitchCount((prev) => {
@@ -54,7 +55,6 @@ export default function TakeQuiz() {
       }
     };
 
-    // Fullscreen change detector
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && !submissionLock.current) {
         setFullscreenViolations((prev) => {
@@ -66,13 +66,12 @@ export default function TakeQuiz() {
       }
     };
 
-    // Disable right click context menu & copy keybindings
     const handleContextMenu = (e) => e.preventDefault();
     const handleKeyDown = (e) => {
       if (
-        e.keyCode === 123 || // F12
-        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || // Ctrl+Shift+I/J
-        (e.ctrlKey && (e.keyCode === 67 || e.keyCode === 86 || e.keyCode === 85)) // Ctrl+C/V/U
+        e.keyCode === 123 || 
+        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || 
+        (e.ctrlKey && (e.keyCode === 67 || e.keyCode === 86 || e.keyCode === 85))
       ) {
         e.preventDefault();
         setWarningText('WARNING: Inspect elements and copy-paste shortcuts are disabled.');
@@ -93,10 +92,12 @@ export default function TakeQuiz() {
     };
   }, []);
 
-  // Timer Countdown Effect
+  // Timer Countdown
   useEffect(() => {
-    if (timeLeft <= 0 && !submissionLock.current && studentData) {
-      handleFinalSubmit();
+    if (!studentData || timeLeft <= 0) {
+      if (timeLeft === 0 && !submissionLock.current) {
+        handleFinalSubmit();
+      }
       return;
     }
 
@@ -108,6 +109,9 @@ export default function TakeQuiz() {
   }, [timeLeft, studentData]);
 
   const handleOptionSelect = (qId, optionLetter) => {
+    // If practice mode and already revealed, prevent changing option
+    if (studentData?.quiz?.isPracticeMode && revealedQuestions[qId]) return;
+
     setUserAnswers((prev) => ({
       ...prev,
       [qId]: optionLetter
@@ -132,20 +136,22 @@ export default function TakeQuiz() {
       const res = await api.post('/submission/submit', payload);
       setSubmittedResult(res.data.submission);
 
-      // Trigger Confetti Celebration
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      } catch (e) {
+        // ignore confetti errors if canvas unavailable
+      }
     } catch (err) {
       console.error('Submission error:', err);
-      // Fallback display if submission already exists
-      setSubmittedResult({
-        score: 0,
-        totalPossible: studentData.quiz.questions.length * (studentData.quiz.marksPerQuestion || 1),
-        status: 'Submitted'
-      });
+      if (err.response?.data?.alreadySubmitted) {
+        setSubmittedResult(err.response.data.submission);
+      } else {
+        alert(err.response?.data?.error || 'Failed to submit exam.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -156,6 +162,11 @@ export default function TakeQuiz() {
   const { quiz, name, regNo } = studentData;
   const questions = quiz.questions || [];
   const currentQ = questions[currentIdx];
+  const isPracticeMode = !!quiz.isPracticeMode;
+  const isRevealed = isPracticeMode && !!revealedQuestions[currentQ?.id];
+  const selectedOpt = userAnswers[currentQ?.id];
+  const isCorrectAnswer = selectedOpt === currentQ?.correctAnswer;
+  const showMarksOnSubmitted = isPracticeMode || !!quiz.showMarksToStudents;
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -176,15 +187,23 @@ export default function TakeQuiz() {
             <p className="text-xs text-slate-500 mt-1">Thank you, {name} ({regNo}). Your response has been recorded.</p>
           </div>
 
-          <div className="p-4 bg-brand-50 rounded-2xl border border-brand-100 space-y-1">
-            <p className="text-xs font-bold text-slate-400 uppercase">Your Score</p>
-            <p className="text-3xl font-extrabold text-brand-800">
-              {submittedResult.score} / {submittedResult.totalPossible}
-            </p>
-            <p className="text-[11px] text-brand-700 font-medium">
-              {((submittedResult.score / (submittedResult.totalPossible || 1)) * 100).toFixed(1)}% Marks Obtained
-            </p>
-          </div>
+          {showMarksOnSubmitted ? (
+            <div className="p-4 bg-brand-50 rounded-2xl border border-brand-100 space-y-1">
+              <p className="text-xs font-bold text-slate-400 uppercase">Your Score</p>
+              <p className="text-3xl font-extrabold text-brand-800">
+                {submittedResult.score} / {submittedResult.totalPossible}
+              </p>
+              <p className="text-[11px] text-brand-700 font-medium">
+                {((submittedResult.score / (submittedResult.totalPossible || 1)) * 100).toFixed(1)}% Marks Obtained
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+              <p className="text-xs font-bold text-slate-500 uppercase">Assessment Submitted</p>
+              <p className="text-sm font-bold text-slate-800">Your answers have been recorded for faculty review.</p>
+              <p className="text-[11px] text-slate-400">Marks will be published by your faculty.</p>
+            </div>
+          )}
 
           {tabSwitchCount > 0 && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium">
@@ -216,7 +235,14 @@ export default function TakeQuiz() {
             <Zap className="w-5 h-5 text-white fill-current" />
           </div>
           <div>
-            <h1 className="font-extrabold text-sm tracking-tight">{quiz.title}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-extrabold text-sm tracking-tight">{quiz.title}</h1>
+              {isPracticeMode && (
+                <span className="px-2 py-0.5 bg-orange-500/30 text-orange-300 border border-orange-400/40 rounded text-[10px] font-extrabold uppercase">
+                  Practice Mode
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-slate-400">{name} ({regNo})</p>
           </div>
         </div>
@@ -262,31 +288,84 @@ export default function TakeQuiz() {
             <div className="space-y-3 pt-2">
               {currentQ?.options?.map((opt, optIdx) => {
                 const letter = String.fromCharCode(65 + optIdx);
-                const isSelected = userAnswers[currentQ.id] === letter;
+                const isSelected = selectedOpt === letter;
+                const isCorrect = letter === currentQ?.correctAnswer;
+
+                let buttonClass = 'bg-brand-50/40 text-slate-800 border-slate-200 hover:border-brand-400 hover:bg-white';
+                let letterClass = 'bg-slate-200 text-slate-700';
+
+                if (isPracticeMode && isRevealed) {
+                  if (isCorrect) {
+                    buttonClass = 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-md';
+                    letterClass = 'bg-white text-emerald-700 font-extrabold';
+                  } else if (isSelected && !isCorrect) {
+                    buttonClass = 'bg-red-500 text-white border-red-500 font-bold shadow-md';
+                    letterClass = 'bg-white text-red-700 font-extrabold';
+                  } else {
+                    buttonClass = 'bg-slate-50 text-slate-400 border-slate-200 opacity-50';
+                    letterClass = 'bg-slate-200 text-slate-400';
+                  }
+                } else if (isSelected) {
+                  buttonClass = 'bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-600/30';
+                  letterClass = 'bg-white text-brand-700 font-extrabold';
+                }
 
                 return (
                   <button
                     key={optIdx}
                     onClick={() => handleOptionSelect(currentQ.id, letter)}
-                    className={`w-full p-4 rounded-2xl border text-left text-sm font-semibold transition-all flex items-center justify-between ${
-                      isSelected
-                        ? 'bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-600/30'
-                        : 'bg-brand-50/40 text-slate-800 border-slate-200 hover:border-brand-400 hover:bg-white'
-                    }`}
+                    disabled={isPracticeMode && isRevealed}
+                    className={`w-full p-4 rounded-2xl border text-left text-sm font-semibold transition-all flex items-center justify-between ${buttonClass}`}
                   >
                     <span className="flex items-center gap-3">
-                      <span className={`w-7 h-7 rounded-lg text-xs flex items-center justify-center font-extrabold ${
-                        isSelected ? 'bg-white text-brand-700' : 'bg-slate-200 text-slate-700'
-                      }`}>
+                      <span className={`w-7 h-7 rounded-lg text-xs flex items-center justify-center font-extrabold ${letterClass}`}>
                         {letter}
                       </span>
                       {opt.replace(/^[A-D][\.\:\)]\s*/, '')}
                     </span>
-                    {isSelected && <CheckCircle2 className="w-5 h-5 text-white" />}
+
+                    {isPracticeMode && isRevealed ? (
+                      isCorrect ? (
+                        <CheckCircle2 className="w-5 h-5 text-white" />
+                      ) : isSelected ? (
+                        <XCircle className="w-5 h-5 text-white" />
+                      ) : null
+                    ) : (
+                      isSelected && <CheckCircle2 className="w-5 h-5 text-white" />
+                    )}
                   </button>
                 );
               })}
             </div>
+
+            {/* Practice Mode Immediate Feedback & Explanation Container */}
+            {isPracticeMode && isRevealed && (
+              <div className={`p-4 rounded-2xl border ${
+                isCorrectAnswer 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+                  : 'bg-red-50 border-red-200 text-red-900'
+              } space-y-2 animate-in fade-in duration-200`}>
+                <div className="flex items-center gap-2 font-extrabold text-sm">
+                  {isCorrectAnswer ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <span>Correct Answer! (+{currentQ?.marks || quiz.marksPerQuestion || 1} Marks)</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-5 h-5 text-red-600 shrink-0" />
+                      <span>Incorrect. Correct answer is Option {currentQ?.correctAnswer}</span>
+                    </>
+                  )}
+                </div>
+
+                {currentQ?.explanation && (
+                  <p className="text-xs text-slate-700 font-medium italic border-t border-slate-200/60 pt-2 mt-1">
+                    💡 <span className="font-bold">Explanation:</span> {currentQ.explanation}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Prev / Next Navigation Buttons */}
             <div className="flex items-center justify-between pt-6 border-t border-slate-100">
@@ -298,7 +377,36 @@ export default function TakeQuiz() {
                 <ArrowLeft className="w-4 h-4" /> Previous
               </button>
 
-              {currentIdx < questions.length - 1 ? (
+              {isPracticeMode ? (
+                !isRevealed ? (
+                  <button
+                    onClick={() => {
+                      if (!selectedOpt) return alert('Please select an option first.');
+                      setRevealedQuestions((prev) => ({ ...prev, [currentQ.id]: true }));
+                    }}
+                    disabled={!selectedOpt}
+                    className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    Check Answer <CheckCircle2 className="w-4 h-4" />
+                  </button>
+                ) : currentIdx < questions.length - 1 ? (
+                  <button
+                    onClick={() => setCurrentIdx((prev) => Math.min(questions.length - 1, prev + 1))}
+                    className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                  >
+                    Continue to Next Question <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleFinalSubmit}
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1.5"
+                  >
+                    <Send className="w-4 h-4" />
+                    {isSubmitting ? 'Submitting...' : 'Finish & Submit Exam'}
+                  </button>
+                )
+              ) : currentIdx < questions.length - 1 ? (
                 <button
                   onClick={() => setCurrentIdx((prev) => Math.min(questions.length - 1, prev + 1))}
                   className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
@@ -357,43 +465,26 @@ export default function TakeQuiz() {
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded bg-brand-50 border border-brand-200"></div> Unanswered
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-slate-900"></div> Current
-              </div>
             </div>
-
-            <button
-              onClick={handleFinalSubmit}
-              disabled={isSubmitting}
-              className="w-full mt-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <Send className="w-4 h-4" /> Submit Quiz Now
-            </button>
           </div>
         </div>
 
       </div>
 
-      {/* Warning Anti-Cheat Modal */}
+      {/* Anti-cheat Alert Modal */}
       {showWarningModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border-2 border-red-500">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 mx-auto flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6" />
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 border border-red-200 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 mx-auto flex items-center justify-center">
+              <AlertTriangle className="w-8 h-8" />
             </div>
-            <h3 className="font-extrabold text-lg text-slate-900">Proctoring Warning Flag</h3>
-            <p className="text-xs text-red-700 font-medium leading-relaxed">{warningText}</p>
+            <h3 className="text-lg font-extrabold text-slate-900">Security Warning</h3>
+            <p className="text-xs font-semibold text-slate-600 leading-relaxed">{warningText}</p>
             <button
-              onClick={() => {
-                setShowWarningModal(false);
-                // Re-request fullscreen
-                if (document.documentElement.requestFullscreen) {
-                  document.documentElement.requestFullscreen().catch(() => {});
-                }
-              }}
-              className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition-colors"
+              onClick={() => setShowWarningModal(false)}
+              className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
             >
-              I Understand - Resume Exam
+              I Understand & Acknowledge
             </button>
           </div>
         </div>

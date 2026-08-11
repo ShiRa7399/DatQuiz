@@ -29,6 +29,8 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
     initialQuiz?.questionCount || (initialQuiz?.questions ? initialQuiz.questions.length : 10)
   );
   const [maxTabSwitches, setMaxTabSwitches] = useState(initialQuiz?.maxTabSwitches ?? 0);
+  const [isPracticeMode, setIsPracticeMode] = useState(initialQuiz?.isPracticeMode || false);
+  const [showMarksToStudents, setShowMarksToStudents] = useState(initialQuiz?.showMarksToStudents || false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   useEffect(() => {
@@ -45,8 +47,11 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
       setMarksPerQuestion(quiz.marksPerQuestion || 1);
       setQuestionCount(quiz.questionCount || (quiz.questions ? quiz.questions.length : 10));
       setMaxTabSwitches(quiz.maxTabSwitches ?? 0);
+      setIsPracticeMode(!!quiz.isPracticeMode);
+      setShowMarksToStudents(!!quiz.showMarksToStudents);
     }
   }, [quiz]);
+
 
   const fetchSubmissions = async () => {
     try {
@@ -115,8 +120,11 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
         endTime: endTime ? new Date(endTime).toISOString() : quiz.endTime,
         marksPerQuestion: parseFloat(marksPerQuestion),
         questionCount: parseInt(questionCount, 10),
-        maxTabSwitches: parseInt(maxTabSwitches, 10)
+        maxTabSwitches: parseInt(maxTabSwitches, 10),
+        isPracticeMode: !!isPracticeMode,
+        showMarksToStudents: !!showMarksToStudents
       };
+
 
       const res = await api.put(`/quiz/${quiz.quizCode}`, payload);
       setQuiz(res.data.quiz);
@@ -433,7 +441,38 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
                   </div>
 
                 </div>
+
+                {/* Mode Options */}
+                <div className="space-y-3 pt-3 border-t border-slate-100">
+                  <label className="flex items-start gap-3 p-3 bg-orange-50/60 rounded-xl border border-orange-100 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isPracticeMode}
+                      onChange={(e) => setIsPracticeMode(e.target.checked)}
+                      className="w-4 h-4 mt-0.5 text-orange-700 rounded focus:ring-orange-600 accent-orange-700"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">Enable Practice Mode</span>
+                      <span className="text-[11px] text-slate-500 block">Shows immediate correct answer feedback & explanations after each question attempt.</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 p-3 bg-orange-50/60 rounded-xl border border-orange-100 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showMarksToStudents}
+                      onChange={(e) => setShowMarksToStudents(e.target.checked)}
+                      className="w-4 h-4 mt-0.5 text-orange-700 rounded focus:ring-orange-600 accent-orange-700"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">Show Marks to Students After Exam (Default: OFF)</span>
+                      <span className="text-[11px] text-slate-500 block">If disabled (default), student score is hidden on final submission screen.</span>
+                    </div>
+                  </label>
+                </div>
+
               </form>
+
 
             </div>
           )}
