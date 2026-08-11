@@ -1,5 +1,6 @@
 const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const path = require('path');
 
 let serviceAccount;
@@ -24,6 +25,7 @@ if (!getApps().length) {
 }
 
 const db = getFirestore();
+const adminAuth = getAuth();
 
 // Optional settings for Firestore timestamp handling
 db.settings({ ignoreUndefinedProperties: true });
@@ -31,5 +33,7 @@ db.settings({ ignoreUndefinedProperties: true });
 console.log('🔥 Firebase Admin SDK initialized for project: datquiz-88e31');
 
 module.exports = {
-  db
+  db,
+  adminAuth
 };
+

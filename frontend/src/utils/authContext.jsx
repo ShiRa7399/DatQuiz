@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from './firebase';
 import api from './api';
 
 const AuthContext = createContext(null);
@@ -50,6 +52,50 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async () => {
+    setLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const googleUser = result.user;
+      const idToken = await googleUser.getIdToken();
+
+      let userData;
+      let token = idToken;
+
+      try {
+        const res = await api.post('/auth/google', {
+          idToken,
+          googleUser: {
+            uid: googleUser.uid,
+            email: googleUser.email,
+            displayName: googleUser.displayName,
+            photoURL: googleUser.photoURL
+          }
+        });
+        userData = res.data.user;
+        token = res.data.token || idToken;
+      } catch (backendErr) {
+        console.warn('Backend Google Auth endpoint fallback active:', backendErr);
+        userData = {
+          id: `google_${googleUser.uid}`,
+          name: googleUser.displayName || 'Google Faculty',
+          email: googleUser.email,
+          department: 'Academic Faculty',
+          avatar: googleUser.photoURL
+        };
+      }
+
+      setUser(userData);
+      localStorage.setItem('faculty_token', token);
+      return { success: true };
+    } catch (err) {
+      console.error('Google Sign-In error:', err);
+      return { success: false, error: err.message || 'Google Sign-In failed.' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signup = async (name, email, password, department) => {
     setLoading(true);
     try {
@@ -81,10 +127,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, loginWithGoogle, signup, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => useContext(AuthContext);
+
