@@ -129,6 +129,7 @@ router.put('/:code', (req, res) => {
   if (endTime !== undefined) targetQuiz.endTime = endTime;
   if (questionCount !== undefined) targetQuiz.questionCount = parseInt(questionCount, 10) || (targetQuiz.questions ? targetQuiz.questions.length : 0);
   if (maxTabSwitches !== undefined) targetQuiz.maxTabSwitches = parseInt(maxTabSwitches, 10) >= 0 ? parseInt(maxTabSwitches, 10) : (targetQuiz.maxTabSwitches || 0);
+  if (req.body.isStopped !== undefined) targetQuiz.isStopped = !!req.body.isStopped;
 
   writeStore(store);
 
@@ -138,6 +139,25 @@ router.put('/:code', (req, res) => {
   });
 });
 
+// Force Stop Quiz handler
+router.post('/:code/stop', (req, res) => {
+  const store = readStore();
+  const code = req.params.code.trim().toUpperCase();
+  const quiz = store.quizzes.find(q => q.quizCode === code || q.id === req.params.code);
+
+  if (!quiz) {
+    return res.status(404).json({ error: 'Quiz not found.' });
+  }
+
+  quiz.isStopped = true;
+  quiz.endTime = new Date().toISOString();
+  writeStore(store);
+
+  return res.json({
+    message: 'Quiz force stopped successfully.',
+    quiz
+  });
+});
 
 // Upload Student Roster Excel (.xlsx) for a quiz
 router.post('/:code/roster', upload.single('file'), (req, res) => {
@@ -206,7 +226,7 @@ router.post('/send-invites', async (req, res) => {
 });
 
 // Delete single quiz by Code or ID
-router.delete('/:code', (req, res) => {
+router.delete('/:code', async (req, res) => {
   const store = readStore();
   const code = req.params.code.trim().toUpperCase();
   const index = store.quizzes.findIndex(q => q.quizCode === code || q.id === req.params.code);
@@ -215,9 +235,16 @@ router.delete('/:code', (req, res) => {
     return res.status(404).json({ error: 'Quiz not found.' });
   }
 
+  const deletedQuiz = store.quizzes[index];
   store.quizzes.splice(index, 1);
   writeStore(store);
+
+  const { deleteFromFirestore } = require('../data/store');
+  if (deletedQuiz.quizCode) await deleteFromFirestore('quizzes', deletedQuiz.quizCode);
+  if (deletedQuiz.id) await deleteFromFirestore('quizzes', deletedQuiz.id);
+
   return res.json({ message: 'Quiz deleted successfully.' });
 });
 
 module.exports = router;
+

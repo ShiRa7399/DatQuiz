@@ -4,7 +4,7 @@ import api from '../utils/api';
 import { 
   X, Copy, UploadCloud, FileSpreadsheet, Mail, 
   Trash2, Download, Save, Clock, Calendar, Award, 
-  HelpCircle, ShieldAlert, CheckCircle2 
+  HelpCircle, ShieldAlert, CheckCircle2, OctagonX 
 } from 'lucide-react';
 
 export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefresh }) {
@@ -56,6 +56,22 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
       console.error('Error fetching submissions:', err);
     }
   };
+
+  const handleStopQuiz = async () => {
+    if (!window.confirm(`Are you sure you want to force end quiz ${quiz.quizCode}? Students will no longer be able to join or attempt.`)) return;
+
+    setStatusMsg({ type: 'info', text: 'Stopping quiz...' });
+    try {
+      const res = await api.post(`/quiz/${quiz.quizCode}/stop`);
+      setQuiz(res.data.quiz);
+      setStatusMsg({ type: 'success', text: 'Quiz has been force ended by faculty.' });
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error('Stop quiz error:', err);
+      setStatusMsg({ type: 'error', text: 'Failed to stop quiz.' });
+    }
+  };
+
 
   // Instant dialog trigger & auto-upload for Excel Roster
   const handleOpenFileDialog = () => {
@@ -242,12 +258,39 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
             </div>
           )}
 
-          {/* TAB 2: Settings (Includes Excel Roster & Editable Quiz Options) */}
+          {/* TAB 2: Settings (Includes Stop Quiz Button at Top, Excel Roster & Editable Quiz Options) */}
           {activeTab === 'Settings' && (
             <div className="space-y-6 max-w-2xl mx-auto">
               
+              {/* TOP ACTION BAR: Stop Quiz & Status Badge */}
+              <div className="bg-white p-5 rounded-2xl border border-red-200/80 shadow-sm flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className={`px-3.5 py-1 text-xs font-extrabold rounded-full border ${
+                    quiz.isStopped || (quiz.endTime && new Date(quiz.endTime) < new Date())
+                      ? 'bg-red-100 text-red-800 border-red-300'
+                      : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  }`}>
+                    {quiz.isStopped || (quiz.endTime && new Date(quiz.endTime) < new Date()) ? '🔴 QUIZ ENDED' : '🟢 QUIZ ACTIVE'}
+                  </span>
+                  <p className="text-xs text-slate-500 font-semibold hidden sm:block">
+                    {quiz.isStopped ? 'This quiz was force ended by faculty.' : 'Active & open for student responses.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleStopQuiz}
+                  disabled={quiz.isStopped}
+                  className="py-2.5 px-5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <OctagonX className="w-4 h-4 stroke-[2.5]" />
+                  {quiz.isStopped ? 'Quiz Already Stopped' : 'Stop Quiz Now'}
+                </button>
+              </div>
+
               {/* Excel Roster Management Card */}
               <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-lg bg-orange-100/80 text-orange-700">

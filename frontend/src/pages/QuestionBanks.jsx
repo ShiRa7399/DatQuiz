@@ -8,7 +8,7 @@ import {
 export default function QuestionBanks() {
   const [banks, setBanks] = useState([]);
   const [selectedBank, setSelectedBank] = useState(null);
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,33 +38,37 @@ export default function QuestionBanks() {
 
   const handleFileUpload = async (e) => {
     e.preventDefault();
-    if (!file) {
-      setStatusMsg({ type: 'error', text: 'Please select a .pdf or .txt file first.' });
+    if (!files || files.length === 0) {
+      setStatusMsg({ type: 'error', text: 'Please select one or more .pdf or .txt files first.' });
       return;
     }
 
     setLoading(true);
-    setStatusMsg({ type: 'info', text: 'Parsing document & extracting questions...' });
+    setStatusMsg({ type: 'info', text: `Parsing ${files.length} document(s) & extracting questions...` });
 
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', title || file.name.replace(/\.[^/.]+$/, ""));
-    formData.append('description', description || 'AI-Parsed Question Bank');
+    files.forEach((f) => {
+      formData.append('files', f);
+    });
+
+    const defaultTitle = files.length === 1 ? files[0].name.replace(/\.[^/.]+$/, "") : `Bank (${files.length} Files)`;
+    formData.append('title', title || defaultTitle);
+    formData.append('description', description || `AI-Parsed from ${files.length} file(s)`);
 
     try {
       const res = await api.post('/question-bank/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      setStatusMsg({ type: 'success', text: `Successfully parsed ${res.data.questionBank.questions.length} questions!` });
-      setFile(null);
+      setStatusMsg({ type: 'success', text: `Successfully parsed ${res.data.questionBank.questions.length} questions from ${files.length} file(s)!` });
+      setFiles([]);
       setTitle('');
       setDescription('');
       fetchQuestionBanks();
       setSelectedBank(res.data.questionBank);
     } catch (err) {
       console.error('File upload error:', err);
-      setStatusMsg({ type: 'error', text: err.response?.data?.error || 'Failed to parse file.' });
+      setStatusMsg({ type: 'error', text: err.response?.data?.error || 'Failed to parse files.' });
     } finally {
       setLoading(false);
     }
@@ -89,7 +93,7 @@ export default function QuestionBanks() {
           <BookOpen className="w-7 h-7 text-brand-600" /> Question Banks & AI Parser
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Upload PDF or TXT documents to automatically generate JSON MCQs with answer verification.
+          Upload PDF or TXT documents (single or multiple) to automatically generate JSON MCQs with answer verification.
         </p>
       </div>
 
@@ -111,10 +115,10 @@ export default function QuestionBanks() {
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-brand-200 p-6 shadow-sm">
             <h2 className="text-base font-extrabold text-slate-900 mb-1 flex items-center gap-2">
-              <UploadCloud className="w-5 h-5 text-brand-600" /> Upload Document (.pdf / .txt)
+              <UploadCloud className="w-5 h-5 text-brand-600" /> Upload Documents (.pdf / .txt)
             </h2>
             <p className="text-xs text-slate-500 mb-4">
-              Parses question blocks, options A-D, and correct answers automatically.
+              Select single or multiple files to extract question blocks, options A-D, and correct answers automatically.
             </p>
 
             <form onSubmit={handleFileUpload} className="space-y-4">
@@ -122,7 +126,7 @@ export default function QuestionBanks() {
                 <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Bank Title</label>
                 <input
                   type="text"
-                  placeholder="e.g., Operating Systems Quiz 1"
+                  placeholder="e.g., Operating Systems Batch 1"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-3.5 py-2 bg-brand-50/50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand-600 focus:bg-white"
@@ -134,14 +138,17 @@ export default function QuestionBanks() {
                 <input
                   type="file"
                   accept=".pdf,.txt"
-                  onChange={(e) => setFile(e.target.files[0])}
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files || []))}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
                 <FileText className="w-8 h-8 text-brand-600 mx-auto mb-2" />
                 <p className="text-xs font-bold text-slate-700">
-                  {file ? file.name : 'Click or drag .pdf or .txt file here'}
+                  {files.length > 0
+                    ? `${files.length} file(s) selected: ${files.map(f => f.name).join(', ')}`
+                    : 'Click or drag single or multiple .pdf / .txt files here'}
                 </p>
-                <p className="text-[10px] text-slate-400 mt-1">Supports standard text or question blocks</p>
+                <p className="text-[10px] text-slate-400 mt-1">Supports selecting multiple files at once</p>
               </div>
 
               <button
@@ -150,10 +157,11 @@ export default function QuestionBanks() {
                 className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md shadow-brand-600/20 transition-all flex items-center justify-center gap-2"
               >
                 <Sparkles className="w-4 h-4" />
-                {loading ? 'Processing Document...' : 'Parse & Extract Questions'}
+                {loading ? 'Processing Document(s)...' : 'Parse & Extract Questions'}
               </button>
             </form>
           </div>
+
 
           {/* Question Banks List */}
           <div className="bg-white rounded-3xl border border-brand-100 p-6 shadow-sm space-y-3">

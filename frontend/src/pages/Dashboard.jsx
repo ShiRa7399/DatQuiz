@@ -59,13 +59,20 @@ export default function Dashboard() {
   };
 
   const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const selectedFiles = Array.from(e.target.files || []);
+    if (!selectedFiles || selectedFiles.length === 0) return;
 
     setUploading(true);
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', file.name.replace(/\.[^/.]+$/, ""));
+    selectedFiles.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    if (selectedFiles.length === 1) {
+      formData.append('title', selectedFiles[0].name.replace(/\.[^/.]+$/, ""));
+    } else {
+      formData.append('title', `Question Bank (${selectedFiles.length} Documents)`);
+    }
 
     try {
       await api.post('/question-bank/upload', formData, {
@@ -74,7 +81,7 @@ export default function Dashboard() {
       fetchDashboardData();
     } catch (err) {
       console.error('File upload error:', err);
-      alert('Failed to parse document: ' + (err.response?.data?.error || err.message));
+      alert('Failed to parse document(s): ' + (err.response?.data?.error || err.message));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -82,38 +89,44 @@ export default function Dashboard() {
   };
 
   const handleDeleteQuiz = async (code, e) => {
-    e.stopPropagation();
-    if (!window.confirm(`Delete quiz code ${code}?`)) return;
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Permanently delete quiz ${code} from database?`)) return;
     try {
       await api.delete(`/quiz/${code}`);
+      setQuizzes(prev => prev.filter(q => q.quizCode !== code && q.id !== code));
       fetchDashboardData();
     } catch (err) {
       console.error('Delete quiz error:', err);
+      alert('Failed to delete quiz from database.');
     }
   };
 
   const handleDeleteQb = async (bankId, e) => {
-    e.stopPropagation();
-    if (!window.confirm('Delete this question bank?')) return;
+    if (e) e.stopPropagation();
+    if (!window.confirm('Permanently delete this question bank from database?')) return;
     try {
       await api.delete(`/question-bank/${bankId}`);
+      setQuestionBanks(prev => prev.filter(b => b.id !== bankId));
       fetchDashboardData();
     } catch (err) {
       console.error('Delete bank error:', err);
+      alert('Failed to delete question bank from database.');
     }
   };
 
   return (
     <div className="min-h-screen bg-[#f6ebd8] flex flex-col select-none font-sans">
       
-      {/* Hidden File Input for PDF/TXT Upload */}
+      {/* Hidden File Input for Multi-File PDF/TXT Upload */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         accept=".pdf,.txt"
+        multiple
         className="hidden"
       />
+
 
       {/* Top App Bar */}
       <header className="h-14 bg-[#e65c00] text-white px-6 flex items-center justify-between shadow-none shrink-0">

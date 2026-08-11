@@ -97,8 +97,13 @@ export default function StudentJoin() {
         throw new Error(`Quiz code '${code.toUpperCase()}' not found.`);
       }
 
+      if (quiz.isStopped || (quiz.endTime && new Date(quiz.endTime) < new Date())) {
+        throw new Error(`This quiz has been stopped / force ended by the faculty.`);
+      }
+
       setVerifiedQuiz(quiz);
       setStep(2); // Proceed to Step 2: Student Details
+
     } catch (err) {
       console.error('Code verification error:', err);
       setError(err.response?.data?.error || `Quiz code '${code.toUpperCase()}' does not exist.`);

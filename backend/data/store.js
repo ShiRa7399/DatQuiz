@@ -107,6 +107,16 @@ async function syncFromFirestore() {
   }
 }
 
+async function deleteFromFirestore(collectionName, docId) {
+  if (!db || !docId) return;
+  try {
+    await db.collection(collectionName).doc(String(docId)).delete();
+    console.log(`🔥 Deleted document ${docId} from Firestore collection '${collectionName}'`);
+  } catch (err) {
+    console.error(`Failed deleting doc ${docId} from Firestore collection '${collectionName}':`, err.message);
+  }
+}
+
 // Initial Cloud Firestore sync
 syncFromFirestore();
 
@@ -114,5 +124,7 @@ module.exports = {
   readStore,
   writeStore,
   syncFromFirestore,
-  syncToFirestore
+  syncToFirestore,
+  deleteFromFirestore
 };
+

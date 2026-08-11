@@ -2,7 +2,9 @@ const XLSX = require('xlsx');
 
 /**
  * Parses uploaded Excel roster buffer into JSON list of students.
- * Extracts: Registration no, name, email
+ * Flexibly accepts Registration No spellings:
+ * - "Registration no", "register no", "registration number", "register number", "reg no", "roll no", "id", etc.
+ * Preserves exact order of students as uploaded.
  */
 function parseRosterExcel(fileBuffer) {
   const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
@@ -17,15 +19,29 @@ function parseRosterExcel(fileBuffer) {
     let name = '';
     let email = '';
 
-    // Find keys matching columns (case-insensitive)
     Object.keys(row).forEach((key) => {
-      const cleanKey = key.trim().toLowerCase();
-      if (cleanKey.includes('reg') || cleanKey.includes('roll') || cleanKey.includes('id')) {
-        regNo = String(row[key]).trim();
-      } else if (cleanKey.includes('name')) {
-        name = String(row[key]).trim();
-      } else if (cleanKey.includes('email') || cleanKey.includes('mail')) {
-        email = String(row[key]).trim();
+      const cleanKey = key.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      // Registration number variant matching
+      if (
+        cleanKey.includes('register') || 
+        cleanKey.includes('registration') || 
+        cleanKey.includes('reg') || 
+        cleanKey.includes('roll') || 
+        cleanKey.includes('studentno') || 
+        cleanKey.includes('studentnum') || 
+        cleanKey === 'id' || 
+        cleanKey.includes('studentid')
+      ) {
+        if (!regNo) regNo = String(row[key]).trim();
+      } 
+      // Name variant matching
+      else if (cleanKey.includes('name')) {
+        if (!name) name = String(row[key]).trim();
+      } 
+      // Email variant matching
+      else if (cleanKey.includes('email') || cleanKey.includes('mail')) {
+        if (!email) email = String(row[key]).trim();
       }
     });
 
@@ -33,7 +49,7 @@ function parseRosterExcel(fileBuffer) {
       roster.push({
         regNo: regNo || `REG_${Math.floor(1000 + Math.random() * 9000)}`,
         name: name || 'Student',
-        email: email || 'student@example.com'
+        email: email || ''
       });
     }
   });
@@ -42,84 +58,76 @@ function parseRosterExcel(fileBuffer) {
 }
 
 /**
- * Creates intelligent CSV string matching roster against submissions.
+ * Creates CSV string strictly following format:
+ * "register no | name | status | marks"
+ * - status: 'P' if attended, 'A' if absent
+ * - marks: score achieved if attended ('P'), 0 if absent ('A')
+ * - Email column removed
+ * - Row order remains EXACTLY the same as uploaded roster
  */
-function generateIntelligentCSV(roster, submissions, totalMarks = 100) {
+function generateIntelligentCSV(roster, submissions) {
   const submissionMap = new Map();
-  submissions.forEach((sub) => {
-    submissionMap.set(sub.regNo.trim().toUpperCase(), sub);
+  (submissions || []).forEach((sub) => {
+    if (sub.regNo) {
+      submissionMap.set(sub.regNo.trim().toUpperCase(), sub);
+    }
   });
 
   const rows = [
-    ['Registration No', 'Student Name', 'Email', 'Marks Obtained', 'Percentage (%)', 'Status', 'Tab Switches', 'Flags', 'Submitted At']
+    ['register no', 'name', 'status', 'marks']
   ];
 
-  roster.forEach((student) => {
-    const key = student.regNo.trim().toUpperCase();
+  (roster || []).forEach((student) => {
+    const key = student.regNo ? student.regNo.trim().toUpperCase() : '';
     const sub = submissionMap.get(key);
+    const isAttended = !!sub;
 
-    if (sub) {
-      const marks = sub.score !== undefined ? sub.score : 0;
-      const pct = sub.totalPossible ? ((marks / sub.totalPossible) * 100).toFixed(1) : '0.0';
-      const status = sub.status || (sub.cheatFlags && sub.cheatFlags.length > 0 ? 'Flagged' : 'Submitted');
-      const flags = sub.cheatFlags ? sub.cheatFlags.join('; ') : 'None';
-      const date = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : 'N/A';
+    const status = isAttended ? 'P' : 'A';
+    const marks = isAttended ? (sub.score !== undefined ? sub.score : 0) : 0;
 
-      rows.push([
-        student.regNo,
-        student.name,
-        student.email,
-        marks,
-        `${pct}%`,
-        status,
-        sub.tabSwitchCount || 0,
-        `"${flags}"`,
-        `"${date}"`
-      ]);
-    } else {
-      rows.push([
-        student.regNo,
-        student.name,
-        student.email,
-        0,
-        '0.0%',
-        'Absent',
-        0,
-        'None',
-        'N/A'
-      ]);
-    }
+    rows.push([
+      `"${student.regNo}"`,
+      `"${student.name}"`,
+      `"${status}"`,
+      marks
+    ]);
   });
 
   return rows.map((r) => r.join(',')).join('\n');
 }
 
 /**
- * Creates graded Excel buffer appending "Marks Obtained" and "Exam Status".
+ * Creates graded Excel buffer strictly following format:
+ * Columns: "register no", "name", "status", "marks"
+ * - status: 'P' if attended, 'A' if absent
+ * - marks: score achieved if attended ('P'), 0 if absent ('A')
+ * - Email column removed
+ * - Row order remains EXACTLY the same as uploaded roster
  */
 function generateGradedExcelBuffer(roster, submissions) {
   const submissionMap = new Map();
-  submissions.forEach((sub) => {
-    submissionMap.set(sub.regNo.trim().toUpperCase(), sub);
+  (submissions || []).forEach((sub) => {
+    if (sub.regNo) {
+      submissionMap.set(sub.regNo.trim().toUpperCase(), sub);
+    }
   });
 
-  const gradedData = roster.map((student) => {
-    const key = student.regNo.trim().toUpperCase();
+  const gradedData = (roster || []).map((student) => {
+    const key = student.regNo ? student.regNo.trim().toUpperCase() : '';
     const sub = submissionMap.get(key);
+    const isAttended = !!sub;
 
     return {
-      'Registration no': student.regNo,
-      'Name': student.name,
-      'Email': student.email,
-      'Marks Obtained': sub ? sub.score : 'Absent',
-      'Exam Status': sub ? (sub.cheatFlags?.length > 0 ? 'Flagged/Suspicious' : 'Completed') : 'Absent',
-      'Tab Switches': sub ? (sub.tabSwitchCount || 0) : 0
+      'register no': student.regNo,
+      'name': student.name,
+      'status': isAttended ? 'P' : 'A',
+      'marks': isAttended ? (sub.score !== undefined ? sub.score : 0) : 0
     };
   });
 
   const worksheet = XLSX.utils.json_to_sheet(gradedData);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Graded Quiz Roster');
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Graded Roster');
 
   return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 }

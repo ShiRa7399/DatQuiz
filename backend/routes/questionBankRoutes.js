@@ -2,35 +2,45 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { parseQuestionsFromBuffer, parseTextToQuestions } = require('../services/parserService');
-const { readStore, writeStore } = require('../data/store');
+const { readStore, writeStore, deleteFromFirestore } = require('../data/store');
 
-const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+const upload = multer({ limits: { fileSize: 25 * 1024 * 1024 } }); // 25MB limit
 
-// Upload PDF/TXT file and parse into JSON questions
-router.post('/upload', upload.single('file'), async (req, res) => {
+// Upload single or multiple PDF/TXT files and parse into JSON questions
+router.post('/upload', upload.any(), async (req, res) => {
   try {
-    let questions = [];
-    let title = req.body.title || 'Uploaded Question Bank';
+    let allQuestions = [];
+    let filesToProcess = req.files || [];
 
-    if (req.file) {
-      title = title !== 'Uploaded Question Bank' ? title : req.file.originalname.replace(/\.[^/.]+$/, "");
-      questions = await parseQuestionsFromBuffer(
-        req.file.buffer,
-        req.file.mimetype,
-        req.file.originalname
-      );
+    if (filesToProcess.length > 0) {
+      for (const file of filesToProcess) {
+        const parsed = await parseQuestionsFromBuffer(
+          file.buffer,
+          file.mimetype,
+          file.originalname
+        );
+        allQuestions = allQuestions.concat(parsed);
+      }
     } else if (req.body.text) {
-      questions = parseTextToQuestions(req.body.text);
+      allQuestions = parseTextToQuestions(req.body.text);
     } else {
-      return res.status(400).json({ error: 'Please provide a file (.pdf, .txt) or text content.' });
+      return res.status(400).json({ error: 'Please select one or more .pdf or .txt files.' });
     }
+
+    const defaultTitle = filesToProcess.length === 1 
+      ? filesToProcess[0].originalname.replace(/\.[^/.]+$/, "")
+      : `Bank (${filesToProcess.length} Files)`;
+
+    const title = req.body.title && req.body.title !== 'Uploaded Question Bank' 
+      ? req.body.title 
+      : defaultTitle;
 
     const newQuestionBank = {
       id: `qb_${Date.now()}`,
       title,
-      description: req.body.description || `AI-Parsed from ${req.file ? req.file.originalname : 'text input'}`,
+      description: req.body.description || `AI-Parsed from ${filesToProcess.length || 1} file(s)`,
       createdAt: new Date().toISOString(),
-      questions
+      questions: allQuestions
     };
 
     const store = readStore();
@@ -38,12 +48,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     writeStore(store);
 
     return res.json({
-      message: 'File processed and Question Bank created successfully!',
+      message: `Successfully processed ${filesToProcess.length || 1} file(s) with ${allQuestions.length} questions!`,
       questionBank: newQuestionBank
     });
   } catch (err) {
     console.error('Question Bank Upload error:', err);
-    return res.status(500).json({ error: 'Failed to parse file: ' + err.message });
+    return res.status(500).json({ error: 'Failed to parse file(s): ' + err.message });
   }
 });
 
@@ -103,15 +113,21 @@ router.delete('/:id/question/:qId', (req, res) => {
   return res.json({ message: 'Question deleted successfully.', questionBank: bank });
 });
 
-// Delete entire Question Bank
-router.delete('/:id', (req, res) => {
+// Delete entire Question Bank (deletes from store AND Cloud Firestore DB)
+router.delete('/:id', async (req, res) => {
   const store = readStore();
   const index = store.questionBanks.findIndex(b => b.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'Question Bank not found.' });
 
+  const deletedBank = store.questionBanks[index];
   store.questionBanks.splice(index, 1);
   writeStore(store);
-  return res.json({ message: 'Question Bank deleted successfully.' });
+
+  if (deletedBank.id) {
+    await deleteFromFirestore('questionBanks', deletedBank.id);
+  }
+
+  return res.json({ message: 'Question Bank deleted successfully from database.' });
 });
 
 module.exports = router;
