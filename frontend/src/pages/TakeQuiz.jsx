@@ -48,12 +48,25 @@ export default function TakeQuiz() {
       if (document.hidden && !submissionLock.current) {
         setTabSwitchCount((prev) => {
           const next = prev + 1;
-          setWarningText(`WARNING: Tab switch detected! (Violation #${next}). This incident is logged.`);
-          setShowWarningModal(true);
+          const maxAllowed = studentData?.quiz?.maxTabSwitches !== undefined 
+            ? parseInt(studentData.quiz.maxTabSwitches, 10) 
+            : 3;
+
+          if (next > maxAllowed) {
+            setWarningText(`CRITICAL ALERT: You exceeded the allowed ${maxAllowed} tab switches! Your exam is being automatically submitted now.`);
+            setShowWarningModal(true);
+            setTimeout(() => {
+              handleFinalSubmit();
+            }, 1200);
+          } else {
+            setWarningText(`WARNING: Tab switch detected! (Violation #${next} of ${maxAllowed} allowed). Further switches will trigger automatic exam submission.`);
+            setShowWarningModal(true);
+          }
           return next;
         });
       }
     };
+
 
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && !submissionLock.current) {

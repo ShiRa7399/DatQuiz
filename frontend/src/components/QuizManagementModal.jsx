@@ -28,10 +28,11 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
   const [questionCount, setQuestionCount] = useState(
     initialQuiz?.questionCount || (initialQuiz?.questions ? initialQuiz.questions.length : 10)
   );
-  const [maxTabSwitches, setMaxTabSwitches] = useState(initialQuiz?.maxTabSwitches ?? 0);
+  const [maxTabSwitches, setMaxTabSwitches] = useState(initialQuiz?.maxTabSwitches ?? 3);
   const [isPracticeMode, setIsPracticeMode] = useState(initialQuiz?.isPracticeMode || false);
   const [showMarksToStudents, setShowMarksToStudents] = useState(initialQuiz?.showMarksToStudents || false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
 
   useEffect(() => {
     if (quiz?.quizCode) {
@@ -496,44 +497,24 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
           {activeTab === 'Results' && (
             <div className="space-y-6">
               
-              {/* REAL-TIME ATTENDANCE TRACKER BANNER */}
-              <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 rounded-3xl p-6 text-white shadow-lg space-y-3 relative overflow-hidden">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-orange-100">
-                      Real-Time Attendance Tracker
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-extrabold bg-white/20 px-3 py-1 rounded-full text-white backdrop-blur-xs">
-                    🔴 LIVE POLLING
-                  </span>
-                </div>
-
-                <div className="flex items-baseline justify-between pt-1">
-                  <div>
-                    <h2 className="text-4xl font-black tracking-tight">
-                      {quiz.roster && quiz.roster.length > 0 
-                        ? `${submissions.length} / ${quiz.roster.length}`
-                        : `${submissions.length}`}
-                    </h2>
-                    <p className="text-xs font-bold text-orange-100 mt-1">
-                      {quiz.roster && quiz.roster.length > 0
-                        ? `Students Attended Out Of ${quiz.roster.length} Uploaded (${((submissions.length / (quiz.roster.length || 1)) * 100).toFixed(0)}% Attendance)`
-                        : `Total Students Attended So Far`}
-                    </p>
-                  </div>
+              {/* SIMPLE ATTENDANCE TRACKER CARD */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quiz Attendance</p>
+                  <h2 className="text-3xl font-black text-slate-900 mt-1">
+                    {quiz.roster && quiz.roster.length > 0 
+                      ? `${submissions.length} / ${quiz.roster.length} Attended`
+                      : `${submissions.length} Attended`}
+                  </h2>
                 </div>
 
                 {quiz.roster && quiz.roster.length > 0 && (
-                  <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden p-0.5 border border-white/20 mt-2">
-                    <div 
-                      className="bg-emerald-400 h-full rounded-full transition-all duration-500 shadow-sm"
-                      style={{ width: `${Math.min(100, (submissions.length / quiz.roster.length) * 100)}%` }}
-                    />
-                  </div>
+                  <span className="px-3 py-1.5 bg-orange-50 text-orange-700 font-extrabold text-xs rounded-xl border border-orange-200">
+                    {((submissions.length / (quiz.roster.length || 1)) * 100).toFixed(0)}% Submissions
+                  </span>
                 )}
               </div>
+
 
               <div className="flex items-center justify-between pt-1">
                 <h3 className="text-base font-extrabold text-slate-900">Submissions & Anti-Cheat Log</h3>

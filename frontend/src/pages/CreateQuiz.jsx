@@ -16,8 +16,10 @@ export default function CreateQuiz() {
   const [description, setDescription] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [marksPerQuestion, setMarksPerQuestion] = useState(1);
+  const [maxTabSwitches, setMaxTabSwitches] = useState(3);
   const [isPracticeMode, setIsPracticeMode] = useState(false);
   const [showMarksToStudents, setShowMarksToStudents] = useState(false);
+
 
 
   const [allBanks, setAllBanks] = useState([]);
@@ -174,12 +176,14 @@ export default function CreateQuiz() {
         description: description.trim() || 'Standard Proctored Assessment',
         durationMinutes: Number(durationMinutes) || 30,
         marksPerQuestion: Number(marksPerQuestion) || 1,
+        maxTabSwitches: Number(maxTabSwitches) >= 0 ? Number(maxTabSwitches) : 3,
         startTime: startTime ? new Date(startTime).toISOString() : new Date().toISOString(),
         endTime: endTime ? new Date(endTime).toISOString() : null,
         isPracticeMode: !!isPracticeMode,
         showMarksToStudents: !!showMarksToStudents,
         customQuestions: finalQuestions
       };
+
 
 
       await api.post('/quiz', payload);
@@ -413,7 +417,7 @@ export default function CreateQuiz() {
             <form id="finalConfigForm" onSubmit={handleFinalizeQuiz} className="flex-1 overflow-y-auto p-6 space-y-6">
               
               {/* General Settings */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Duration (Mins)</label>
                   <input type="number" min="1" required value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg h-11 px-3 text-sm font-bold focus:outline-none focus:border-[#e65c00]" />
@@ -422,7 +426,13 @@ export default function CreateQuiz() {
                   <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Marks per Question</label>
                   <input type="number" step="any" min="0" required value={marksPerQuestion} onChange={(e) => setMarksPerQuestion(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg h-11 px-3 text-sm font-bold focus:outline-none focus:border-[#e65c00]" />
                 </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Allowed Tab Switches</label>
+                  <input type="number" min="0" required value={maxTabSwitches} onChange={(e) => setMaxTabSwitches(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg h-11 px-3 text-sm font-bold focus:outline-none focus:border-[#e65c00]" />
+                  <span className="text-[10px] text-slate-400 font-medium">Default: 3 (4th auto-submits)</span>
+                </div>
               </div>
+
 
               {/* Time Window */}
               <div className="grid grid-cols-2 gap-4">

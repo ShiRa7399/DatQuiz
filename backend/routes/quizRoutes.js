@@ -64,6 +64,7 @@ const handleCreateQuiz = (req, res) => {
     endTime: endTime || new Date(Date.now() + 86400000).toISOString(),
     durationMinutes: parseInt(durationMinutes, 10) || 30,
     marksPerQuestion: parseInt(marksPerQuestion, 10) || 1,
+    maxTabSwitches: req.body.maxTabSwitches !== undefined ? parseInt(req.body.maxTabSwitches, 10) : 3,
     questionBankId: questionBankId || null,
     isPracticeMode: !!isPracticeMode,
     showMarksToStudents: showMarksToStudents !== undefined ? !!showMarksToStudents : false,
@@ -71,6 +72,7 @@ const handleCreateQuiz = (req, res) => {
     roster: [],
     createdAt: new Date().toISOString()
   };
+
 
   store.quizzes.unshift(newQuiz);
   writeStore(store);
