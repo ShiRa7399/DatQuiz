@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Secure Production Rules:
+    // Block direct client-side web read/write access.
+    // DatQuiz Express backend continues to work 100% via Firebase Admin SDK serviceAccount.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
