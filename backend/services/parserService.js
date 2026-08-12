@@ -85,7 +85,15 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
   let model;
-  const modelNames = ["gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"];
+  const modelNames = [
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-flash-latest",
+    "gemini-1.5-flash"
+  ];
+
   let lastErr;
 
   const isPdf = mimeType === 'application/pdf' || (originalName && originalName.endsWith('.pdf'));
