@@ -28,11 +28,11 @@ export default function TakeQuiz() {
   const [submittedResult, setSubmittedResult] = useState(null);
   const submissionLock = useRef(false);
 
-  // Practice mode state
+  // Practice mode & visited tracking state
   const [revealedQuestions, setRevealedQuestions] = useState({});
+  const [visitedQuestions, setVisitedQuestions] = useState({});
 
   useEffect(() => {
-
     const raw = safeStorage.getItem('active_student');
     if (!raw) {
       navigate('/join');
@@ -48,6 +48,19 @@ export default function TakeQuiz() {
       navigate('/join');
     }
   }, [navigate]);
+
+  // Track visited questions (only mark red if actually visited and left unanswered)
+  useEffect(() => {
+    const questionsList = studentData?.quiz?.questions || [];
+    if (questionsList[currentIdx]?.id) {
+      const qId = questionsList[currentIdx].id;
+      setVisitedQuestions((prev) => {
+        if (prev[qId]) return prev;
+        return { ...prev, [qId]: true };
+      });
+    }
+  }, [currentIdx, studentData]);
+
 
   // Anti-Cheat Event Listeners
   useEffect(() => {
@@ -465,7 +478,8 @@ export default function TakeQuiz() {
               {questions.map((q, idx) => {
                 const isAnswered = !!userAnswers[q.id];
                 const isCurrent = currentIdx === idx;
-                const isSkipped = !isAnswered && idx < currentIdx;
+                const isVisited = !!visitedQuestions[q.id];
+                const isSkipped = !isAnswered && isVisited && !isCurrent;
 
                 let paletteColor = 'bg-white text-slate-700 border border-slate-300'; // White = Not Visited
                 if (isAnswered) {
@@ -487,6 +501,7 @@ export default function TakeQuiz() {
                 );
               })}
             </div>
+
 
             {/* Legend */}
             <div className="pt-3 border-t border-slate-100 space-y-2 text-[11px] font-semibold text-slate-600">

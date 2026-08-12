@@ -80,46 +80,38 @@ async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) 
     const joinLink = `${baseUrl}/#/join?code=${encodeURIComponent(quiz.quizCode)}&reg=${encodeURIComponent(student.regNo || '')}&name=${encodeURIComponent(student.name || '')}`;
 
     const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #fff7ed; padding: 24px; border-radius: 12px; border: 1px solid #ffedd5;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h1 style="color: #ea580c; font-size: 24px; margin: 0;">⚡ DatQuiz LMS</h1>
-          <p style="color: #9a3412; font-size: 14px; margin-top: 4px;">Online Assessment Invitation</p>
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background-color: #ffffff; padding: 24px; border-radius: 16px; border: 1px solid #e2e8f0;">
+        <div style="text-align: center; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px;">
+          <h1 style="color: #ea580c; font-size: 22px; margin: 0; font-weight: 800;">⚡ DatQuiz</h1>
+          <p style="color: #64748b; font-size: 13px; margin-top: 4px; font-weight: 600;">Online Assessment Invitation</p>
         </div>
 
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-          <h2 style="color: #431407; font-size: 18px; margin-top: 0;">Hello, ${student.name || 'Student'}!</h2>
-          <p style="color: #7c2d12; font-size: 14px;">
-            You have been registered for an upcoming online assessment: <strong>${quiz.title}</strong>.
+        <div>
+          <h2 style="color: #0f172a; font-size: 16px; margin-top: 0;">Hello, ${student.name || 'Student'}!</h2>
+          <p style="color: #334155; font-size: 14px; line-height: 1.5;">
+            You have been registered for the online assessment: <strong>${quiz.title}</strong>.
           </p>
           
-          <table style="width: 100%; border-collapse: collapse; margin: 16px 0; background-color: #fff7ed; padding: 12px; border-radius: 6px;">
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0; background-color: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
             <tr>
-              <td style="padding: 8px; color: #9a3412; font-weight: bold;">Quiz Code:</td>
-              <td style="padding: 8px; color: #c2410c; font-weight: bold; font-size: 16px;">${quiz.quizCode}</td>
+              <td style="padding: 10px; color: #64748b; font-weight: bold; font-size: 13px;">Quiz Code:</td>
+              <td style="padding: 10px; color: #ea580c; font-weight: bold; font-size: 16px;">${quiz.quizCode}</td>
             </tr>
             <tr>
-              <td style="padding: 8px; color: #9a3412; font-weight: bold;">Reg No:</td>
-              <td style="padding: 8px; color: #431407;">${student.regNo || 'N/A'}</td>
+              <td style="padding: 10px; color: #64748b; font-weight: bold; font-size: 13px;">Reg No:</td>
+              <td style="padding: 10px; color: #0f172a; font-weight: bold; font-size: 13px;">${student.regNo || 'N/A'}</td>
             </tr>
             <tr>
-              <td style="padding: 8px; color: #9a3412; font-weight: bold;">Duration:</td>
-              <td style="padding: 8px; color: #431407;">${quiz.durationMinutes || 30} Mins</td>
+              <td style="padding: 10px; color: #64748b; font-weight: bold; font-size: 13px;">Duration:</td>
+              <td style="padding: 10px; color: #0f172a; font-weight: bold; font-size: 13px;">${quiz.durationMinutes || 30} Mins</td>
             </tr>
           </table>
 
-          <div style="text-align: center; margin: 28px 0;">
-            <a href="${joinLink}" style="background-color: #ea580c; color: #ffffff; padding: 14px 28px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);">
-              Join Quiz Instantly &rarr;
+          <div style="text-align: center; margin: 24px 0 12px 0;">
+            <a href="${joinLink}" style="background-color: #ea580c; color: #ffffff; padding: 12px 28px; font-weight: bold; font-size: 14px; text-decoration: none; border-radius: 10px; display: inline-block;">
+              Join Quiz &rarr;
             </a>
           </div>
-
-          <p style="font-size: 12px; color: #9a3412; text-align: center;">
-            Direct Link: <a href="${joinLink}" style="color: #ea580c;">${joinLink}</a>
-          </p>
-        </div>
-
-        <div style="text-align: center; margin-top: 20px; color: #9a3412; font-size: 12px;">
-          DatQuiz LMS &bull; Automated System Dispatch
         </div>
       </div>
     `;
@@ -146,7 +138,7 @@ async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) 
     // 2. Nodemailer SMTP or Simulation Dispatch
     try {
       await mailer.sendMail({
-        from: '"DatQuiz LMS" <no-reply@datquiz.edu>',
+        from: '"DatQuiz" <no-reply@datquiz.edu>',
         to: studentEmail,
         subject: `[DatQuiz] Join Quiz: ${quiz.title} (${quiz.quizCode})`,
         html: htmlContent
