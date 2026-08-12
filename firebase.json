@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "datquiz2",
     "public": "frontend/dist",
     "ignore": [
       "firebase.json",
