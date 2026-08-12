@@ -116,7 +116,8 @@ router.get('/:code', (req, res) => {
 });
 
 // Revoke student attempt
-router.delete('/:code/:regNo', (req, res) => {
+router.delete('/:code/:regNo', async (req, res) => {
+  const { deleteFromFirestore } = require('../data/store');
   const store = readStore();
   const code = req.params.code.trim().toUpperCase();
   const regNo = req.params.regNo.trim().toUpperCase();
@@ -129,11 +130,18 @@ router.delete('/:code/:regNo', (req, res) => {
     return res.status(404).json({ error: 'Submission not found for this student.' });
   }
 
+  const removedSub = store.submissions[index];
   store.submissions.splice(index, 1);
   writeStore(store);
 
+  // Delete from Cloud Firestore database
+  if (removedSub.id) {
+    await deleteFromFirestore('submissions', removedSub.id);
+  }
+
   return res.json({ message: `Successfully revoked submission for ${regNo}` });
 });
+
 
 // Export Intelligent CSV (matches roster vs submissions, missing = Absent with 0)
 router.get('/:code/export-csv', (req, res) => {

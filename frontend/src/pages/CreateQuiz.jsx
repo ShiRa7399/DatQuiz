@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import BankSelectionModal from '../components/BankSelectionModal';
 import AddManualQuestionModal from '../components/AddManualQuestionModal';
+import EditQuestionModal from '../components/EditQuestionModal';
 import { 
   ArrowLeft, Type, Plus, UploadCloud, Edit3, Trash2, 
-  CheckCircle2, HelpCircle, Loader2, Sparkles 
+  CheckCircle2, HelpCircle, Loader2, Sparkles, Pencil 
 } from 'lucide-react';
+
 
 export default function CreateQuiz() {
   const navigate = useNavigate();
@@ -29,6 +31,8 @@ export default function CreateQuiz() {
   const [showBankModal, setShowBankModal] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(null);
+
   
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -356,13 +360,23 @@ export default function CreateQuiz() {
                         {q.question}
                       </h3>
                     </div>
-                    <button
-                      onClick={() => handleRemoveQuestionFromPool(q.id)}
-                      className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg shrink-0 transition-colors"
-                      title="Delete Question"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => setEditingQuestion(q)}
+                        className="text-orange-500 hover:text-orange-700 hover:bg-orange-50 p-1.5 rounded-lg transition-colors"
+                        title="Edit Question"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleRemoveQuestionFromPool(q.id)}
+                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                        title="Delete Question"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
                   </div>
 
                   {q.options && q.options.length > 0 && (
@@ -542,6 +556,16 @@ export default function CreateQuiz() {
         />
       )}
 
+      {editingQuestion && (
+        <EditQuestionModal
+          question={editingQuestion}
+          onClose={() => setEditingQuestion(null)}
+          onSaveSuccess={(updatedQ) => {
+            setQuestionPool(prev => prev.map(item => item.id === updatedQ.id ? { ...item, ...updatedQ } : item));
+            setEditingQuestion(null);
+          }}
+        />
+      )}
     </div>
   );
 }

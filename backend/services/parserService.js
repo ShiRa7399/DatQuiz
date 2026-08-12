@@ -28,6 +28,57 @@ async function parseQuestionsFromBuffer(buffer, mimeType, originalName) {
 }
 
 /**
+ * Helper to unbundle inline options if a single string contains embedded "A. ... B. ... C. ... D. ..."
+ */
+function unbundleOptions(optionsArray) {
+  if (!Array.isArray(optionsArray) || optionsArray.length === 0) {
+    return ["Option A", "Option B", "Option C", "Option D"];
+  }
+
+  const fullText = optionsArray.join(' ');
+  const regex = /(?:^|\s+|\b)([A-D])[\.\:\)]\s*/gi;
+
+  const positions = [];
+  let match;
+  while ((match = regex.exec(fullText)) !== null) {
+    positions.push({
+      letter: match[1].toUpperCase(),
+      index: match.index,
+      length: match[0].length
+    });
+  }
+
+  if (positions.length >= 2) {
+    const extracted = [];
+    for (let i = 0; i < positions.length; i++) {
+      const start = positions[i].index + positions[i].length;
+      const end = i < positions.length - 1 ? positions[i + 1].index : fullText.length;
+      const optStr = fullText.slice(start, end).trim();
+      if (optStr) {
+        extracted.push(optStr);
+      }
+    }
+    if (extracted.length >= 2) {
+      while (extracted.length < 4) {
+        extracted.push(`Option ${String.fromCharCode(65 + extracted.length)}`);
+      }
+      return extracted.slice(0, 4);
+    }
+  }
+
+  // Standard cleanup
+  const clean = optionsArray.map((opt, idx) => {
+    const str = String(opt || '').trim();
+    return str.replace(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*/i, '').trim() || `Option ${String.fromCharCode(65 + idx)}`;
+  });
+
+  while (clean.length < 4) {
+    clean.push(`Option ${String.fromCharCode(65 + clean.length)}`);
+  }
+  return clean.slice(0, 4);
+}
+
+/**
  * AI-powered PDF & document parser using Gemini Flash AI
  */
 async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
@@ -46,23 +97,26 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
 CRITICAL INSTRUCTIONS:
 1. IGNORE cover page titles, header banners, university/school names, dates, course codes, exam instructions, total marks headers, and page footers. DO NOT extract document title as a question!
 2. Extract ONLY actual multiple-choice test questions.
-3. "options" must be an array of 4 clean choice text strings WITHOUT prefixing "A)" or "Option A". E.g.: ["Choice 1", "Choice 2", "Choice 3", "Choice 4"].
+3. OPTIONS UNBUNDLING:
+   - Options can be printed on separate lines OR on a single inline line (e.g., "A. Encapsulation B. Assembly Language C. Binary Search D. CPU Scheduling").
+   - You MUST unbundle and separate every option into an individual string element in the "options" array: ["Option A text", "Option B text", "Option C text", "Option D text"].
+   - DO NOT combine multiple options into a single string!
 4. "correctAnswer" must be a single uppercase letter: "A", "B", "C", or "D".
 5. Return ONLY a valid JSON array of question objects matching this exact format:
 
 [
   {
     "id": "q_1",
-    "question": "Which protocol is used for secure web browsing?",
+    "question": "Which concept is most closely related to object-oriented analysis and design?",
     "options": [
-      "HTTP",
-      "HTTPS",
-      "FTP",
-      "SMTP"
+      "Encapsulation",
+      "Assembly Language",
+      "Binary Search",
+      "CPU Scheduling"
     ],
-    "correctAnswer": "B",
+    "correctAnswer": "A",
     "marks": 1,
-    "explanation": "HTTPS provides SSL/TLS encryption for web traffic."
+    "explanation": "Encapsulation is a core concept of OOAD."
   }
 ]
 
@@ -88,14 +142,7 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed.map((q, idx) => {
           const rawOpts = Array.isArray(q.options) ? q.options : [];
-          const cleanOpts = rawOpts.map((opt, oIdx) => {
-            const str = String(opt || '').trim();
-            return str.replace(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*/i, '').trim() || `Option ${String.fromCharCode(65 + oIdx)}`;
-          });
-
-          while (cleanOpts.length < 4) {
-            cleanOpts.push(`Option ${String.fromCharCode(65 + cleanOpts.length)}`);
-          }
+          const cleanOpts = unbundleOptions(rawOpts);
 
           let ansLetter = (q.correctAnswer || 'A').toString().trim().toUpperCase().charAt(0);
           if (!['A', 'B', 'C', 'D'].includes(ansLetter)) ansLetter = 'A';
@@ -103,7 +150,7 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
           return {
             id: q.id || `q_gemini_${Date.now()}_${idx}`,
             question: q.question || `Question ${idx + 1}`,
-            options: cleanOpts.slice(0, 4),
+            options: cleanOpts,
             correctAnswer: ansLetter,
             marks: parseInt(q.marks, 10) || 1,
             explanation: q.explanation || 'Refer to study material.'
@@ -159,7 +206,6 @@ function parseTextToQuestions(text) {
   // Skip document header block if present
   let lines = cleanedText.split('\n').map(l => l.trim()).filter(Boolean);
   
-  // Filter out top header noise lines before Question 1
   let startIndex = 0;
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
@@ -179,7 +225,6 @@ function parseTextToQuestions(text) {
     let questionText = blockLines[0];
     questionText = questionText.replace(/^(?:Q\d+[:\.]?|Question\s*\d+[:\.]?|\d+[\.\)])\s*/i, '').trim();
 
-    // Ignore if question text looks like a document title or header banner
     if (
       questionText.toLowerCase().includes('midterm') || 
       questionText.toLowerCase().includes('final exam') || 
@@ -198,14 +243,11 @@ function parseTextToQuestions(text) {
     for (let i = 1; i < blockLines.length; i++) {
       const line = blockLines[i];
 
-      const optionMatch = line.match(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*(.*)/i);
       const answerMatch = line.match(/^(?:Answer|Correct Answer|Ans)[:\.\s]*(.*)/i);
       const marksMatch = line.match(/^(?:Marks|Points)[:\.\s]*(\d+)/i);
       const expMatch = line.match(/^(?:Explanation)[:\.\s]*(.*)/i);
 
-      if (optionMatch) {
-        rawOptions.push(optionMatch[1].trim());
-      } else if (answerMatch) {
+      if (answerMatch) {
         correctAnswer = answerMatch[1].trim().toUpperCase();
         if (correctAnswer.includes('A')) correctAnswer = 'A';
         else if (correctAnswer.includes('B')) correctAnswer = 'B';
@@ -215,19 +257,28 @@ function parseTextToQuestions(text) {
         marks = parseInt(marksMatch[1], 10) || 1;
       } else if (expMatch) {
         explanation = expMatch[1].trim();
-      } else if (rawOptions.length === 0) {
-        questionText += ' ' + line;
+      } else {
+        // Check if line contains inline option delimiters A. ... B. ... C. ... D. ...
+        const inlineMatches = line.split(/(?=\b[A-D][\.\:\)]\s+)/i);
+        if (inlineMatches.length > 1) {
+          inlineMatches.forEach(optStr => {
+            const m = optStr.trim().match(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*(.*)/i);
+            if (m && m[1].trim()) {
+              rawOptions.push(m[1].trim());
+            }
+          });
+        } else {
+          const optionMatch = line.match(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*(.*)/i);
+          if (optionMatch) {
+            rawOptions.push(optionMatch[1].trim());
+          } else if (rawOptions.length === 0) {
+            questionText += ' ' + line;
+          }
+        }
       }
     }
 
-    const cleanOptions = rawOptions.map((opt, oIdx) => {
-      const str = String(opt || '').trim();
-      return str.replace(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*/i, '').trim() || `Option ${String.fromCharCode(65 + oIdx)}`;
-    });
-
-    while (cleanOptions.length < 4) {
-      cleanOptions.push(`Option ${String.fromCharCode(65 + cleanOptions.length)}`);
-    }
+    const cleanOptions = unbundleOptions(rawOptions);
 
     if (!correctAnswer || !['A', 'B', 'C', 'D'].includes(correctAnswer)) {
       correctAnswer = 'A';
@@ -236,33 +287,18 @@ function parseTextToQuestions(text) {
     questions.push({
       id: `q_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 4)}`,
       question: questionText || `Question ${index + 1}`,
-      options: cleanOptions.slice(0, 4),
+      options: cleanOptions,
       correctAnswer,
       marks,
       explanation: explanation || 'Refer to study material.'
     });
   });
 
-  if (questions.length === 0) {
-    questions.push({
-      id: `q_${Date.now()}_1`,
-      question: "Sample Question 1: What is the primary role of an LMS?",
-      options: [
-        "Managing courses & assessment",
-        "Operating system kernel",
-        "Database indexer",
-        "Hardware firmware"
-      ],
-      correctAnswer: "A",
-      marks: 1,
-      explanation: "LMS stands for Learning Management System."
-    });
-  }
-
   return questions;
 }
 
 module.exports = {
   parseQuestionsFromBuffer,
-  parseTextToQuestions
+  parseTextToQuestions,
+  unbundleOptions
 };
