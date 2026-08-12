@@ -7,6 +7,9 @@ body {
   min-height: 100vh;
   color: #1e293b;
   font-family: Inter, Roboto, system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* Custom scrollbar */
@@ -26,4 +29,14 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #ef6c00;
+}
+
+/* iOS WebKit Input fixes */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+  font-size: 16px !important; /* Prevents auto-zoom on iOS Safari */
 }

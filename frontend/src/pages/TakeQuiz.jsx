@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import api from '../utils/api';
+import { safeStorage } from '../utils/safeStorage';
 import { 
   Zap, Clock, ShieldAlert, CheckCircle2, XCircle, ArrowRight, 
   ArrowLeft, Send, AlertTriangle, Lock, HelpCircle
 } from 'lucide-react';
+
 
 export default function TakeQuiz() {
   const { code } = useParams();
@@ -30,16 +32,21 @@ export default function TakeQuiz() {
   const [revealedQuestions, setRevealedQuestions] = useState({});
 
   useEffect(() => {
-    const raw = sessionStorage.getItem('active_student');
+
+    const raw = safeStorage.getItem('active_student');
     if (!raw) {
       navigate('/join');
       return;
     }
-    const data = JSON.parse(raw);
-    setStudentData(data);
+    try {
+      const data = JSON.parse(raw);
+      setStudentData(data);
 
-    const quizDuration = (data.quiz?.durationMinutes || 30) * 60;
-    setTimeLeft(quizDuration);
+      const quizDuration = (data.quiz?.durationMinutes || 30) * 60;
+      setTimeLeft(quizDuration);
+    } catch (e) {
+      navigate('/join');
+    }
   }, [navigate]);
 
   // Anti-Cheat Event Listeners
@@ -67,9 +74,11 @@ export default function TakeQuiz() {
       }
     };
 
-
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && !submissionLock.current) {
+      const isFullscreenSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+      const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+      if (isFullscreenSupported && !isFullscreen && !submissionLock.current) {
         setFullscreenViolations((prev) => {
           const next = prev + 1;
           setWarningText(`WARNING: You exited Fullscreen mode! Please re-enable fullscreen.`);
@@ -94,16 +103,19 @@ export default function TakeQuiz() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [studentData]);
+
 
   // Timer Countdown
   useEffect(() => {

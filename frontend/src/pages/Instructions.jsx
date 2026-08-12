@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { safeStorage } from '../utils/safeStorage';
 import { ShieldAlert, ArrowRight, Maximize } from 'lucide-react';
 
 export default function Instructions() {
@@ -7,12 +8,16 @@ export default function Instructions() {
   const [student, setStudent] = useState(null);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem('active_student');
+    const raw = safeStorage.getItem('active_student');
     if (!raw) {
       navigate('/join');
       return;
     }
-    setStudent(JSON.parse(raw));
+    try {
+      setStudent(JSON.parse(raw));
+    } catch (e) {
+      navigate('/join');
+    }
   }, [navigate]);
 
   if (!student) return null;
@@ -20,13 +25,19 @@ export default function Instructions() {
   const { quiz, name, regNo, quizCode } = student;
 
   const handleStartExam = () => {
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch((err) => {
-        console.warn('Fullscreen request bypassed:', err);
-      });
+    try {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(() => {});
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      }
+    } catch (err) {
+      // Fullscreen not supported on iOS Mobile Safari - safely proceed
     }
     navigate(`/take-quiz/${quizCode}`);
   };
+
 
   return (
     <div className="min-h-screen bg-brand-50 flex items-center justify-center p-4">

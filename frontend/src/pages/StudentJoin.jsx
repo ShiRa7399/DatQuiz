@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../utils/api';
+import { safeStorage } from '../utils/safeStorage';
 import PrimaryButton from '../components/PrimaryButton';
 import TextField from '../components/TextField';
 import { 
   DoorOpen, Key, User, FileText, Loader2, AlertCircle, 
   ShieldCheck, CheckCircle2, ArrowLeft 
 } from 'lucide-react';
+
 
 export default function StudentJoin() {
   const navigate = useNavigate();
@@ -135,7 +137,7 @@ export default function StudentJoin() {
         throw new Error(`Registration '${regNo.trim()}' has already submitted this exam.`);
       }
 
-      sessionStorage.setItem('active_student', JSON.stringify({
+      safeStorage.setItem('active_student', JSON.stringify({
         quizCode: code.toUpperCase(),
         regNo: regNo.trim(),
         name: name.trim(),
@@ -143,6 +145,8 @@ export default function StudentJoin() {
       }));
 
       navigate('/instructions');
+
+
     } catch (err) {
       console.error('Student registration submission error:', err);
       setError(err.response?.data?.error || err.message || 'Failed to verify registration.');
