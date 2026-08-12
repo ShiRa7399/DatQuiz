@@ -17,7 +17,7 @@ async function parseQuestionsFromBuffer(buffer, mimeType, originalName) {
         return questions;
       }
     } catch (err) {
-      console.warn('⚠️ Gemini AI extraction note, using local parser fallback:', err.message);
+      console.warn('⚠️ Gemini AI extraction note, using robust local parser fallback:', err.message);
     }
   } else {
     console.log('ℹ️ GEMINI_API_KEY not set in env, using local pdf-parse + regex parser.');
@@ -86,14 +86,11 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   
   let model;
   const modelNames = [
-    "gemini-3.5-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-flash-latest",
-    "gemini-1.5-flash"
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-2.0-flash-exp",
+    "gemini-1.5-flash-latest"
   ];
-
   let lastErr;
 
   const isPdf = mimeType === 'application/pdf' || (originalName && originalName.endsWith('.pdf'));
@@ -103,7 +100,7 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const prompt = `You are an expert exam creator and document parser. Extract ALL distinct multiple-choice questions (MCQs) from this uploaded document.
 CRITICAL INSTRUCTIONS:
 1. IGNORE cover page titles, header banners, university/school names, dates, course codes, exam instructions, total marks headers, and page footers. DO NOT extract document title as a question!
-2. Extract ALL unique multiple-choice test questions from Question 1 through to the end of the document. DO NOT repeat the same question!
+2. Extract ALL unique multiple-choice test questions from Question 1 through to the end of the document. Parse every single question in full!
 3. OPTIONS UNBUNDLING:
    - Options can be printed on separate lines OR on a single inline line (e.g., "A. Encapsulation B. Assembly Language C. Binary Search D. CPU Scheduling").
    - You MUST unbundle and separate every option into an individual string element in the "options" array: ["Option A text", "Option B text", "Option C text", "Option D text"].
@@ -217,28 +214,39 @@ function parseTextToQuestions(text) {
   const questions = [];
   if (!text || typeof text !== 'string') return questions;
 
-  const cleanedInput = text.replace(/%PDF-[\s\S]*?%%EOF/gi, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
-  const cleanedText = cleanedInput.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const cleanedText = text
+    .replace(/%PDF-[\s\S]*?%%EOF/gi, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
 
-  // Split on question boundaries: e.g. "1.", "2)", "Q1:", "Question 3.", etc.
-  const questionBoundaryRegex = /(?:^|\n)\s*(?:Q?\d+[\.\:\)]|Question\s*\d+[\.\:\)])\s+/gi;
+  // Match question boundary markers anywhere: e.g. "1.", " 2.", "\n3.", "Question 4:", "Q5."
+  const qRegex = /(?:^|\s+|\n)(?:Q\s*|Question\s*)?(\d+)[\.\:\)]\s+/gi;
 
   const matches = [];
   let match;
-  while ((match = questionBoundaryRegex.exec(cleanedText)) !== null) {
-    matches.push({ index: match.index, length: match[0].length, header: match[0] });
+  while ((match = qRegex.exec(cleanedText)) !== null) {
+    const qNum = parseInt(match[1], 10);
+    if (qNum > 0 && qNum <= 500) {
+      matches.push({
+        num: qNum,
+        index: match.index,
+        matchLength: match[0].length
+      });
+    }
   }
 
   const blocks = [];
-  if (matches.length >= 1) {
+  if (matches.length > 0) {
     for (let i = 0; i < matches.length; i++) {
       const start = matches[i].index;
-      const end = i < matches.length - 1 ? matches[i + 1].index : cleanedText.length;
-      const blockStr = cleanedText.slice(start, end).trim();
-      if (blockStr) blocks.push(blockStr);
+      const end = (i < matches.length - 1) ? matches[i + 1].index : cleanedText.length;
+      const blockText = cleanedText.slice(start, end).trim();
+      if (blockText.length > 5) {
+        blocks.push(blockText);
+      }
     }
   } else {
-    // If no numbered markers found, fallback to double-newline paragraph blocks
     cleanedText.split(/\n\s*\n/).forEach(b => {
       if (b.trim().length > 10) blocks.push(b.trim());
     });
@@ -247,85 +255,88 @@ function parseTextToQuestions(text) {
   const seenQuestionTexts = new Set();
 
   blocks.forEach((block, index) => {
-    const blockLines = block.split('\n').map(l => l.trim()).filter(Boolean);
-    if (blockLines.length === 0) return;
+    let content = block.replace(/^(?:^|\s*)(?:Q\s*|Question\s*)?\d+[\.\:\)]\s*/i, '').trim();
 
-    let questionText = blockLines[0];
-    questionText = questionText.replace(/^(?:Q?\d+[\.\:\)]|Question\s*\d+[\.\:\)])\s*/i, '').trim();
+    if (!content || content.length < 4) return;
 
-    // Skip headers, footers, cover titles, and total marks headers
+    const lowerContent = content.toLowerCase();
     if (
-      questionText.toLowerCase().includes('midterm') || 
-      questionText.toLowerCase().includes('final exam') || 
-      questionText.toLowerCase().includes('university') ||
-      questionText.toLowerCase().includes('total marks') ||
-      questionText.length < 4
+      lowerContent.startsWith('midterm') ||
+      lowerContent.startsWith('final exam') ||
+      lowerContent.startsWith('total marks') ||
+      lowerContent.startsWith('university')
     ) {
       return;
     }
 
-    // Deduplicate identical question texts so 1 question NEVER repeats 100 times!
-    const normalizedKey = questionText.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (seenQuestionTexts.has(normalizedKey)) {
-      return; // Skip duplicate!
-    }
-    seenQuestionTexts.add(normalizedKey);
-
+    let questionText = content;
     let rawOptions = [];
-    let correctAnswer = '';
-    let explanation = '';
-    let marks = 1;
+    let correctAnswer = 'A';
+    let explanation = 'Refer to study material.';
 
-    for (let i = 1; i < blockLines.length; i++) {
-      const line = blockLines[i];
+    // Extract options A., B., C., D. inside content block
+    const optRegex = /(?:^|\s+|\n)([A-D])[\.\:\)]\s+/gi;
+    const optMatches = [];
+    let oMatch;
+    while ((oMatch = optRegex.exec(content)) !== null) {
+      optMatches.push({
+        letter: oMatch[1].toUpperCase(),
+        index: oMatch.index,
+        matchLength: oMatch[0].length
+      });
+    }
 
-      const answerMatch = line.match(/^(?:Answer|Correct Answer|Ans)[:\.\s]*(.*)/i);
-      const marksMatch = line.match(/^(?:Marks|Points)[:\.\s]*(\d+)/i);
-      const expMatch = line.match(/^(?:Explanation)[:\.\s]*(.*)/i);
+    if (optMatches.length >= 2) {
+      questionText = content.slice(0, optMatches[0].index).trim();
 
-      if (answerMatch) {
-        correctAnswer = answerMatch[1].trim().toUpperCase();
-        if (correctAnswer.includes('A')) correctAnswer = 'A';
-        else if (correctAnswer.includes('B')) correctAnswer = 'B';
-        else if (correctAnswer.includes('C')) correctAnswer = 'C';
-        else if (correctAnswer.includes('D')) correctAnswer = 'D';
-      } else if (marksMatch) {
-        marks = parseInt(marksMatch[1], 10) || 1;
-      } else if (expMatch) {
-        explanation = expMatch[1].trim();
-      } else {
-        const inlineMatches = line.split(/(?=\b[A-D][\.\:\)]\s+)/i);
-        if (inlineMatches.length > 1) {
-          inlineMatches.forEach(optStr => {
-            const m = optStr.trim().match(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*(.*)/i);
-            if (m && m[1].trim()) {
-              rawOptions.push(m[1].trim());
-            }
-          });
-        } else {
-          const optionMatch = line.match(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*(.*)/i);
-          if (optionMatch) {
-            rawOptions.push(optionMatch[1].trim());
-          } else if (rawOptions.length === 0) {
-            questionText += ' ' + line;
+      for (let i = 0; i < optMatches.length; i++) {
+        const start = optMatches[i].index + optMatches[i].matchLength;
+        const end = (i < optMatches.length - 1) ? optMatches[i + 1].index : content.length;
+        let optText = content.slice(start, end).trim();
+
+        const ansCheck = optText.match(/^(.*?)(?:\s+(?:Ans|Answer|Correct Answer)[:\.\s]*(.*))$/i);
+        if (ansCheck) {
+          optText = ansCheck[1].trim();
+          const ansStr = ansCheck[2].trim().toUpperCase();
+          if (['A', 'B', 'C', 'D'].includes(ansStr.charAt(0))) {
+            correctAnswer = ansStr.charAt(0);
+          }
+        }
+
+        if (optText) rawOptions.push(optText);
+      }
+    } else {
+      const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length > 0) {
+        questionText = lines[0];
+        for (let i = 1; i < lines.length; i++) {
+          const l = lines[i];
+          const m = l.match(/^(?:[A-D]|\([A-D]\))[\.\:\)]\s*(.*)/i);
+          if (m) {
+            rawOptions.push(m[1].trim());
+          } else {
+            questionText += ' ' + l;
           }
         }
       }
     }
 
-    const cleanOptions = unbundleOptions(rawOptions);
+    questionText = questionText.replace(/\s+/g, ' ').trim();
+    if (!questionText || questionText.length < 3) return;
 
-    if (!correctAnswer || !['A', 'B', 'C', 'D'].includes(correctAnswer)) {
-      correctAnswer = 'A';
-    }
+    const normKey = questionText.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (seenQuestionTexts.has(normKey)) return;
+    seenQuestionTexts.add(normKey);
+
+    const cleanOptions = unbundleOptions(rawOptions);
 
     questions.push({
       id: `q_${Date.now()}_${questions.length + 1}_${Math.random().toString(36).substr(2, 4)}`,
-      question: questionText || `Question ${questions.length + 1}`,
+      question: questionText,
       options: cleanOptions,
       correctAnswer,
-      marks,
-      explanation: explanation || 'Refer to study material.'
+      marks: 1,
+      explanation
     });
   });
 
