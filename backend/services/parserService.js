@@ -10,14 +10,14 @@ async function parseQuestionsFromBuffer(buffer, mimeType, originalName) {
 
   if (apiKey) {
     try {
-      console.log('🤖 Attempting AI PDF extraction via Gemini AI...');
+      console.log('🤖 Forwarding PDF buffer directly to Gemini AI for multi-question extraction...');
       const questions = await parseWithGeminiAI(buffer, mimeType, originalName, apiKey);
       if (questions && questions.length > 0) {
-        console.log(`✨ Gemini AI successfully extracted ${questions.length} questions!`);
+        console.log(`✨ Gemini AI successfully extracted ${questions.length} distinct questions!`);
         return questions;
       }
     } catch (err) {
-      console.warn('⚠️ Gemini AI extraction error, falling back to local regex parser:', err.message);
+      console.warn('⚠️ Gemini AI extraction note, using local parser fallback:', err.message);
     }
   } else {
     console.log('ℹ️ GEMINI_API_KEY not set in env, using local pdf-parse + regex parser.');
@@ -84,7 +84,6 @@ function unbundleOptions(optionsArray) {
 async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
-  // Try standard model names
   let model;
   const modelNames = ["gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"];
   let lastErr;
@@ -93,10 +92,10 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const effectiveMimeType = isPdf ? 'application/pdf' : 'text/plain';
   const base64Data = buffer.toString('base64');
 
-  const prompt = `You are an expert exam creator and document parser. Extract ALL multiple-choice questions (MCQs) from this uploaded document.
+  const prompt = `You are an expert exam creator and document parser. Extract ALL distinct multiple-choice questions (MCQs) from this uploaded document.
 CRITICAL INSTRUCTIONS:
 1. IGNORE cover page titles, header banners, university/school names, dates, course codes, exam instructions, total marks headers, and page footers. DO NOT extract document title as a question!
-2. Extract ONLY actual multiple-choice test questions.
+2. Extract ALL unique multiple-choice test questions from Question 1 through to the end of the document. DO NOT repeat the same question!
 3. OPTIONS UNBUNDLING:
    - Options can be printed on separate lines OR on a single inline line (e.g., "A. Encapsulation B. Assembly Language C. Binary Search D. CPU Scheduling").
    - You MUST unbundle and separate every option into an individual string element in the "options" array: ["Option A text", "Option B text", "Option C text", "Option D text"].
@@ -140,22 +139,32 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
 
       const parsed = JSON.parse(cleanedText);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((q, idx) => {
+        const seenKeys = new Set();
+        const results = [];
+
+        parsed.forEach((q, idx) => {
+          const qText = String(q.question || '').trim();
+          const normKey = qText.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (normKey && seenKeys.has(normKey)) return; // Skip duplicate
+          if (normKey) seenKeys.add(normKey);
+
           const rawOpts = Array.isArray(q.options) ? q.options : [];
           const cleanOpts = unbundleOptions(rawOpts);
 
           let ansLetter = (q.correctAnswer || 'A').toString().trim().toUpperCase().charAt(0);
           if (!['A', 'B', 'C', 'D'].includes(ansLetter)) ansLetter = 'A';
 
-          return {
+          results.push({
             id: q.id || `q_gemini_${Date.now()}_${idx}`,
-            question: q.question || `Question ${idx + 1}`,
+            question: qText || `Question ${idx + 1}`,
             options: cleanOpts,
             correctAnswer: ansLetter,
             marks: parseInt(q.marks, 10) || 1,
             explanation: q.explanation || 'Refer to study material.'
-          };
+          });
         });
+
+        return results;
       }
     } catch (err) {
       lastErr = err;
@@ -203,37 +212,56 @@ function parseTextToQuestions(text) {
   const cleanedInput = text.replace(/%PDF-[\s\S]*?%%EOF/gi, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
   const cleanedText = cleanedInput.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // Skip document header block if present
-  let lines = cleanedText.split('\n').map(l => l.trim()).filter(Boolean);
-  
-  let startIndex = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const l = lines[i];
-    if (l.match(/^(?:Q\d+|Question\s*\d+|\d+[\.\)])\s*/i)) {
-      startIndex = i;
-      break;
-    }
+  // Split on question boundaries: e.g. "1.", "2)", "Q1:", "Question 3.", etc.
+  const questionBoundaryRegex = /(?:^|\n)\s*(?:Q?\d+[\.\:\)]|Question\s*\d+[\.\:\)])\s+/gi;
+
+  const matches = [];
+  let match;
+  while ((match = questionBoundaryRegex.exec(cleanedText)) !== null) {
+    matches.push({ index: match.index, length: match[0].length, header: match[0] });
   }
 
-  const remainingText = lines.slice(startIndex).join('\n');
-  const blocks = remainingText.split(/(?=\n(?:Q\d+|Question\d+|\d+[\.\)])\s*)/i).filter(b => b.trim().length > 0);
+  const blocks = [];
+  if (matches.length >= 1) {
+    for (let i = 0; i < matches.length; i++) {
+      const start = matches[i].index;
+      const end = i < matches.length - 1 ? matches[i + 1].index : cleanedText.length;
+      const blockStr = cleanedText.slice(start, end).trim();
+      if (blockStr) blocks.push(blockStr);
+    }
+  } else {
+    // If no numbered markers found, fallback to double-newline paragraph blocks
+    cleanedText.split(/\n\s*\n/).forEach(b => {
+      if (b.trim().length > 10) blocks.push(b.trim());
+    });
+  }
+
+  const seenQuestionTexts = new Set();
 
   blocks.forEach((block, index) => {
     const blockLines = block.split('\n').map(l => l.trim()).filter(Boolean);
     if (blockLines.length === 0) return;
 
     let questionText = blockLines[0];
-    questionText = questionText.replace(/^(?:Q\d+[:\.]?|Question\s*\d+[:\.]?|\d+[\.\)])\s*/i, '').trim();
+    questionText = questionText.replace(/^(?:Q?\d+[\.\:\)]|Question\s*\d+[\.\:\)])\s*/i, '').trim();
 
+    // Skip headers, footers, cover titles, and total marks headers
     if (
       questionText.toLowerCase().includes('midterm') || 
       questionText.toLowerCase().includes('final exam') || 
       questionText.toLowerCase().includes('university') ||
       questionText.toLowerCase().includes('total marks') ||
-      questionText.length < 5
+      questionText.length < 4
     ) {
       return;
     }
+
+    // Deduplicate identical question texts so 1 question NEVER repeats 100 times!
+    const normalizedKey = questionText.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (seenQuestionTexts.has(normalizedKey)) {
+      return; // Skip duplicate!
+    }
+    seenQuestionTexts.add(normalizedKey);
 
     let rawOptions = [];
     let correctAnswer = '';
@@ -258,7 +286,6 @@ function parseTextToQuestions(text) {
       } else if (expMatch) {
         explanation = expMatch[1].trim();
       } else {
-        // Check if line contains inline option delimiters A. ... B. ... C. ... D. ...
         const inlineMatches = line.split(/(?=\b[A-D][\.\:\)]\s+)/i);
         if (inlineMatches.length > 1) {
           inlineMatches.forEach(optStr => {
@@ -285,8 +312,8 @@ function parseTextToQuestions(text) {
     }
 
     questions.push({
-      id: `q_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 4)}`,
-      question: questionText || `Question ${index + 1}`,
+      id: `q_${Date.now()}_${questions.length + 1}_${Math.random().toString(36).substr(2, 4)}`,
+      question: questionText || `Question ${questions.length + 1}`,
       options: cleanOptions,
       correctAnswer,
       marks,
