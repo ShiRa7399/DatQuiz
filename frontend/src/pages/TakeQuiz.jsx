@@ -406,18 +406,28 @@ export default function TakeQuiz() {
               </div>
             )}
 
-            {/* Prev / Next Navigation Buttons */}
-            <div className="flex items-center justify-between pt-6 border-t border-slate-100">
+            {/* Prev / Next / Submit Navigation Buttons */}
+            <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-4 pt-6 border-t border-slate-100">
+              
               <button
                 onClick={() => setCurrentIdx((prev) => Math.max(0, prev - 1))}
                 disabled={currentIdx === 0}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                className="justify-self-start order-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl disabled:opacity-40 transition-colors flex items-center gap-1.5"
               >
                 <ArrowLeft className="w-4 h-4" /> Previous
               </button>
 
-              {isPracticeMode ? (
-                !isRevealed ? (
+              <button
+                onClick={handleFinalSubmit}
+                disabled={isSubmitting}
+                className="col-span-2 w-full sm:w-auto order-3 sm:order-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center gap-1.5"
+              >
+                <Send className="w-4 h-4" />
+                {isSubmitting ? 'Submitting...' : 'Finish & Submit Exam'}
+              </button>
+
+              <div className="justify-self-end order-2 sm:order-3">
+                {isPracticeMode && !isRevealed ? (
                   <button
                     onClick={() => {
                       if (!selectedOpt) return alert('Please select an option first.');
@@ -428,40 +438,17 @@ export default function TakeQuiz() {
                   >
                     Check Answer <CheckCircle2 className="w-4 h-4" />
                   </button>
-                ) : currentIdx < questions.length - 1 ? (
-                  <button
-                    onClick={() => setCurrentIdx((prev) => Math.min(questions.length - 1, prev + 1))}
-                    className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
-                  >
-                    Continue to Next Question <ArrowRight className="w-4 h-4" />
-                  </button>
                 ) : (
                   <button
-                    onClick={handleFinalSubmit}
-                    disabled={isSubmitting}
-                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1.5"
+                    onClick={() => setCurrentIdx((prev) => Math.min(questions.length - 1, prev + 1))}
+                    disabled={currentIdx === questions.length - 1}
+                    className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 disabled:opacity-40"
                   >
-                    <Send className="w-4 h-4" />
-                    {isSubmitting ? 'Submitting...' : 'Finish & Submit Exam'}
+                    {isPracticeMode ? 'Continue' : 'Next Question'} <ArrowRight className="w-4 h-4" />
                   </button>
-                )
-              ) : currentIdx < questions.length - 1 ? (
-                <button
-                  onClick={() => setCurrentIdx((prev) => Math.min(questions.length - 1, prev + 1))}
-                  className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
-                >
-                  Next Question <ArrowRight className="w-4 h-4" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleFinalSubmit}
-                  disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1.5"
-                >
-                  <Send className="w-4 h-4" />
-                  {isSubmitting ? 'Submitting...' : 'Finish & Submit Exam'}
-                </button>
-              )}
+                )}
+              </div>
+
             </div>
 
           </div>

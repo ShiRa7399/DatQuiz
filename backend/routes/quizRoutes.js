@@ -4,6 +4,7 @@ const multer = require('multer');
 const { parseRosterExcel } = require('../services/excelService');
 const { sendBulkQuizInvites } = require('../services/emailService');
 const { readStore, writeStore } = require('../data/store');
+const { requireAuth } = require('../middleware/auth');
 
 const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -59,7 +60,7 @@ const handleCreateQuiz = (req, res) => {
     quizCode,
     title,
     description: description || '',
-    facultyId: facultyId || 'faculty_1',
+    facultyId: req.user.id,
     startTime: startTime || new Date().toISOString(),
     endTime: endTime || new Date(Date.now() + 86400000).toISOString(),
     durationMinutes: parseInt(durationMinutes, 10) || 30,
@@ -83,36 +84,37 @@ const handleCreateQuiz = (req, res) => {
   });
 };
 
-router.post('/', handleCreateQuiz);
-router.post('/create', handleCreateQuiz);
+router.post('/', requireAuth, handleCreateQuiz);
+router.post('/create', requireAuth, handleCreateQuiz);
 
 // List all quizzes
-router.get('/', (req, res) => {
+router.get('/', requireAuth, (req, res) => {
   const store = readStore();
-  return res.json({ quizzes: store.quizzes });
+  const myQuizzes = store.quizzes.filter(q => q.facultyId === req.user.id);
+  return res.json({ quizzes: myQuizzes });
 });
 
 // Get single quiz by Code
-router.get('/:code', (req, res) => {
+router.get('/:code', requireAuth, (req, res) => {
   const store = readStore();
   const code = req.params.code.trim().toUpperCase();
-  const quiz = store.quizzes.find(q => q.quizCode === code);
+  const quiz = store.quizzes.find(q => q.quizCode === code && q.facultyId === req.user.id);
 
   if (!quiz) {
-    return res.status(404).json({ error: `Quiz code '${code}' not found.` });
+    return res.status(404).json({ error: `Quiz code '${code}' not found or unauthorized.` });
   }
 
   return res.json({ quiz });
 });
 
 // Update quiz settings
-router.put('/:code', (req, res) => {
+router.put('/:code', requireAuth, (req, res) => {
   const store = readStore();
   const code = req.params.code.trim().toUpperCase();
-  const quizIndex = store.quizzes.findIndex(q => q.quizCode === code);
+  const quizIndex = store.quizzes.findIndex(q => q.quizCode === code && q.facultyId === req.user.id);
 
   if (quizIndex === -1) {
-    return res.status(404).json({ error: `Quiz code '${code}' not found.` });
+    return res.status(404).json({ error: `Quiz code '${code}' not found or unauthorized.` });
   }
 
   const targetQuiz = store.quizzes[quizIndex];
@@ -171,13 +173,13 @@ router.post('/:code/stop', (req, res) => {
 });
 
 // Upload Student Roster Excel (.xlsx) for a quiz
-router.post('/:code/roster', upload.single('file'), (req, res) => {
+router.post('/:code/roster', requireAuth, upload.single('file'), (req, res) => {
   try {
     const store = readStore();
     const code = req.params.code.trim().toUpperCase();
-    const quiz = store.quizzes.find(q => q.quizCode === code);
+    const quiz = store.quizzes.find(q => q.quizCode === code && q.facultyId === req.user.id);
 
-    if (!quiz) return res.status(404).json({ error: 'Quiz not found.' });
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found or unauthorized.' });
 
     let newRoster = [];
 
@@ -204,16 +206,16 @@ router.post('/:code/roster', upload.single('file'), (req, res) => {
 });
 
 // Bulk Email Dispatch API Endpoint: /api/quiz/send-invites
-router.post('/send-invites', async (req, res) => {
+router.post('/send-invites', requireAuth, async (req, res) => {
   try {
     const { quizCode, facultyEmail, frontendUrl } = req.body;
     if (!quizCode) return res.status(400).json({ error: 'quizCode is required.' });
 
     const store = readStore();
     const code = quizCode.trim().toUpperCase();
-    const quiz = store.quizzes.find(q => q.quizCode === code);
+    const quiz = store.quizzes.find(q => q.quizCode === code && q.facultyId === req.user.id);
 
-    if (!quiz) return res.status(404).json({ error: 'Quiz not found.' });
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found or unauthorized.' });
     if (!quiz.roster || quiz.roster.length === 0) {
       return res.status(400).json({ error: 'Quiz has no student roster uploaded yet.' });
     }
@@ -237,13 +239,13 @@ router.post('/send-invites', async (req, res) => {
 });
 
 // Delete single quiz by Code or ID
-router.delete('/:code', async (req, res) => {
+router.delete('/:code', requireAuth, async (req, res) => {
   const store = readStore();
   const code = req.params.code.trim().toUpperCase();
-  const index = store.quizzes.findIndex(q => q.quizCode === code || q.id === req.params.code);
+  const index = store.quizzes.findIndex(q => (q.quizCode === code || q.id === req.params.code) && q.facultyId === req.user.id);
 
   if (index === -1) {
-    return res.status(404).json({ error: 'Quiz not found.' });
+    return res.status(404).json({ error: 'Quiz not found or unauthorized.' });
   }
 
   const deletedQuiz = store.quizzes[index];

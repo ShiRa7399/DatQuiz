@@ -16,7 +16,6 @@ export default function QuestionBanks() {
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
-
   // Manual Question state
   const [newQuestionText, setNewQuestionText] = useState('');
   const [newOptions, setNewOptions] = useState(['', '', '', '']);
@@ -116,6 +115,7 @@ export default function QuestionBanks() {
         
         {/* Left Column: File Uploader Card & Bank Selector */}
         <div className="space-y-6">
+
           <div className="bg-white rounded-3xl border border-brand-200 p-6 shadow-sm">
             <h2 className="text-base font-extrabold text-slate-900 mb-1 flex items-center gap-2">
               <UploadCloud className="w-5 h-5 text-brand-600" /> Upload Documents (.pdf / .txt)

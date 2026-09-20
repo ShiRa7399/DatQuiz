@@ -3,21 +3,24 @@ const router = express.Router();
 const multer = require('multer');
 const { parseQuestionsFromBuffer, parseTextToQuestions } = require('../services/parserService');
 const { readStore, writeStore, deleteFromFirestore } = require('../data/store');
+const { requireAuth } = require('../middleware/auth');
 
 const upload = multer({ limits: { fileSize: 25 * 1024 * 1024 } }); // 25MB limit
 
 // Upload single or multiple PDF/TXT files and parse into JSON questions
-router.post('/upload', upload.any(), async (req, res) => {
+router.post('/upload', requireAuth, upload.any(), async (req, res) => {
   try {
     let allQuestions = [];
     let filesToProcess = req.files || [];
+    const requestApiKey = req.headers['x-gemini-api-key'] || req.body.apiKey || null;
 
     if (filesToProcess.length > 0) {
       for (const file of filesToProcess) {
         const parsed = await parseQuestionsFromBuffer(
           file.buffer,
           file.mimetype,
-          file.originalname
+          file.originalname,
+          requestApiKey
         );
         allQuestions = allQuestions.concat(parsed);
       }
@@ -37,6 +40,7 @@ router.post('/upload', upload.any(), async (req, res) => {
 
     const newQuestionBank = {
       id: `qb_${Date.now()}`,
+      facultyId: req.user.id,
       title,
       description: req.body.description || `AI-Parsed from ${filesToProcess.length || 1} file(s)`,
       createdAt: new Date().toISOString(),
@@ -60,31 +64,33 @@ router.post('/upload', upload.any(), async (req, res) => {
 // List all Question Banks handler
 const getQuestionBanksHandler = (req, res) => {
   const store = readStore();
+  const myBanks = store.questionBanks.filter(b => b.facultyId === req.user.id);
   return res.json({
-    banks: store.questionBanks,
-    questionBanks: store.questionBanks
+    banks: myBanks,
+    questionBanks: myBanks
   });
 };
 
-router.get('/', getQuestionBanksHandler);
-router.get('/list', getQuestionBanksHandler);
+router.get('/', requireAuth, getQuestionBanksHandler);
+router.get('/list', requireAuth, getQuestionBanksHandler);
 
 // Get single Question Bank
-router.get('/:id', (req, res) => {
+router.get('/:id', requireAuth, (req, res) => {
   const store = readStore();
-  const bank = store.questionBanks.find(b => b.id === req.params.id);
-  if (!bank) return res.status(404).json({ error: 'Question Bank not found.' });
+  const bank = store.questionBanks.find(b => b.id === req.params.id && b.facultyId === req.user.id);
+  if (!bank) return res.status(404).json({ error: 'Question Bank not found or unauthorized.' });
   return res.json({ questionBank: bank });
 });
 
 // Create manual question bank
-router.post('/', (req, res) => {
+router.post('/', requireAuth, (req, res) => {
   const { title, description, questions } = req.body;
   if (!title) return res.status(400).json({ error: 'Title is required.' });
 
   const store = readStore();
   const newBank = {
     id: `qb_${Date.now()}`,
+    facultyId: req.user.id,
     title,
     description: description || '',
     createdAt: new Date().toISOString(),
@@ -97,10 +103,10 @@ router.post('/', (req, res) => {
 });
 
 // Edit individual question in Question Bank
-router.put('/:id/question/:qId', (req, res) => {
+router.put('/:id/question/:qId', requireAuth, (req, res) => {
   const store = readStore();
-  const bank = store.questionBanks.find(b => b.id === req.params.id);
-  if (!bank) return res.status(404).json({ error: 'Question Bank not found.' });
+  const bank = store.questionBanks.find(b => b.id === req.params.id && b.facultyId === req.user.id);
+  if (!bank) return res.status(404).json({ error: 'Question Bank not found or unauthorized.' });
 
   const qIndex = bank.questions.findIndex(q => q.id === req.params.qId);
   if (qIndex === -1) return res.status(404).json({ error: 'Question ID not found.' });
@@ -117,10 +123,10 @@ router.put('/:id/question/:qId', (req, res) => {
 });
 
 // Delete individual question from Question Bank
-router.delete('/:id/question/:qId', (req, res) => {
+router.delete('/:id/question/:qId', requireAuth, (req, res) => {
   const store = readStore();
-  const bank = store.questionBanks.find(b => b.id === req.params.id);
-  if (!bank) return res.status(404).json({ error: 'Question Bank not found.' });
+  const bank = store.questionBanks.find(b => b.id === req.params.id && b.facultyId === req.user.id);
+  if (!bank) return res.status(404).json({ error: 'Question Bank not found or unauthorized.' });
 
   const initialCount = bank.questions.length;
   bank.questions = bank.questions.filter(q => q.id !== req.params.qId);
@@ -135,10 +141,10 @@ router.delete('/:id/question/:qId', (req, res) => {
 
 
 // Delete entire Question Bank (deletes from store AND Cloud Firestore DB)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   const store = readStore();
-  const index = store.questionBanks.findIndex(b => b.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: 'Question Bank not found.' });
+  const index = store.questionBanks.findIndex(b => b.id === req.params.id && b.facultyId === req.user.id);
+  if (index === -1) return res.status(404).json({ error: 'Question Bank not found or unauthorized.' });
 
   const deletedBank = store.questionBanks[index];
   store.questionBanks.splice(index, 1);

@@ -72,34 +72,34 @@ export default function Instructions() {
             Question Palette Status Legend
           </h3>
 
-          <div className="grid grid-cols-3 gap-3 pt-1">
-            <div className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-200 rounded-xl">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-200 rounded-xl overflow-hidden">
               <span className="w-5 h-5 rounded-lg bg-blue-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0">
                 1
               </span>
-              <div>
-                <span className="text-xs font-extrabold text-slate-900 block">Blue</span>
-                <span className="text-[10px] text-slate-500 block font-medium">Answered</span>
+              <div className="min-w-0">
+                <span className="text-xs font-extrabold text-slate-900 block truncate">Blue</span>
+                <span className="text-[10px] text-slate-500 block font-medium truncate">Answered</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-200 rounded-xl">
+            <div className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-200 rounded-xl overflow-hidden">
               <span className="w-5 h-5 rounded-lg bg-white border border-slate-300 text-slate-700 font-extrabold text-xs flex items-center justify-center shrink-0">
                 2
               </span>
-              <div>
-                <span className="text-xs font-extrabold text-slate-900 block">White</span>
-                <span className="text-[10px] text-slate-500 block font-medium">Not Visited</span>
+              <div className="min-w-0">
+                <span className="text-xs font-extrabold text-slate-900 block truncate">White</span>
+                <span className="text-[10px] text-slate-500 block font-medium truncate">Not Visited</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-200 rounded-xl">
+            <div className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-200 rounded-xl overflow-hidden">
               <span className="w-5 h-5 rounded-lg bg-red-500 text-white font-extrabold text-xs flex items-center justify-center shrink-0">
                 3
               </span>
-              <div>
-                <span className="text-xs font-extrabold text-slate-900 block">Red</span>
-                <span className="text-[10px] text-slate-500 block font-medium">Skipped</span>
+              <div className="min-w-0">
+                <span className="text-xs font-extrabold text-slate-900 block truncate">Red</span>
+                <span className="text-[10px] text-slate-500 block font-medium truncate">Skipped</span>
               </div>
             </div>
           </div>

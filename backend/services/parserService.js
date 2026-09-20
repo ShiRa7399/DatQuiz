@@ -1,26 +1,59 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const pdfParse = require('pdf-parse');
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Retrieves Gemini API Key from:
+ * 1. Explicit parameter / header
+ * 2. backend/config/geminiConfig.json
+ * 3. process.env.GEMINI_API_KEY
+ */
+function getGeminiApiKey(customApiKey) {
+  if (customApiKey && typeof customApiKey === 'string' && customApiKey.trim().length > 5) {
+    return customApiKey.trim();
+  }
+
+  try {
+    const configPath = path.join(__dirname, '../config/geminiConfig.json');
+    if (fs.existsSync(configPath)) {
+      const raw = fs.readFileSync(configPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed.apiKey && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 5) {
+        return parsed.apiKey.trim();
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Note reading geminiConfig.json:', err.message);
+  }
+
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 5) {
+    return process.env.GEMINI_API_KEY.trim();
+  }
+
+  return null;
+}
 
 /**
  * Parses raw text or PDF buffer into structured JSON questions array.
- * Uses Gemini API (if GEMINI_API_KEY is configured in env) with automatic fallback to pdf-parse + regex.
+ * Uses Gemini API (from config/geminiConfig.json or env) with automatic fallback to pdf-parse + regex.
  */
-async function parseQuestionsFromBuffer(buffer, mimeType, originalName) {
-  const apiKey = process.env.GEMINI_API_KEY;
+async function parseQuestionsFromBuffer(buffer, mimeType, originalName, requestApiKey = null) {
+  const apiKey = getGeminiApiKey(requestApiKey);
 
   if (apiKey) {
     try {
-      console.log('🤖 Forwarding PDF buffer directly to Gemini AI for multi-question extraction...');
+      console.log('🤖 Forwarding PDF buffer directly to Gemini AI for multi-question extraction (key active)...');
       const questions = await parseWithGeminiAI(buffer, mimeType, originalName, apiKey);
       if (questions && questions.length > 0) {
         console.log(`✨ Gemini AI successfully extracted ${questions.length} distinct questions!`);
         return questions;
       }
     } catch (err) {
-      console.warn('⚠️ Gemini AI extraction note, using robust local parser fallback:', err.message);
+      console.warn('⚠️ Gemini AI extraction error, using local parser fallback:', err.message);
     }
   } else {
-    console.log('ℹ️ GEMINI_API_KEY not set in env, using local pdf-parse + regex parser.');
+    console.log('ℹ️ Gemini API key not found in backend/config/geminiConfig.json or env. Using local pdf-parse + regex parser.');
   }
 
   // Local fallback parser
@@ -79,13 +112,17 @@ function unbundleOptions(optionsArray) {
 }
 
 /**
- * AI-powered PDF & document parser using Gemini Flash AI
+ * AI-powered PDF & document parser using Gemini Flash / Lite AI models
  */
 async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
-  let model;
   const modelNames = [
+    "gemini-3.5-flash",
+    "gemini-3.1-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.1-lite-preview",
+    "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-2.0-flash-exp",
@@ -129,18 +166,46 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
 
   for (const mName of modelNames) {
     try {
-      model = genAI.getGenerativeModel({ model: mName });
-      const result = await model.generateContent([
-        {
-          inlineData: {
-            data: base64Data,
-            mimeType: effectiveMimeType
-          }
-        },
-        prompt
-      ]);
+      console.log(`🤖 Attempting Gemini extraction with model: ${mName}...`);
+      let text = '';
+      try {
+        const model = genAI.getGenerativeModel({ model: mName });
+        const result = await model.generateContent([
+          {
+            inlineData: {
+              data: base64Data,
+              mimeType: effectiveMimeType
+            }
+          },
+          prompt
+        ]);
+        text = result.response.text();
+      } catch (sdkErr) {
+        console.log(`ℹ️ SDK call for ${mName} note: ${sdkErr.message}. Trying direct REST fallback...`);
+        // Fallback to direct REST API call if SDK call fails
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inline_data: { mime_type: effectiveMimeType, data: base64Data } },
+                { text: prompt }
+              ]
+            }]
+          })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Gemini REST API error ${res.status}: ${errText}`);
+        }
+        const resData = await res.json();
+        text = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      }
 
-      const text = result.response.text();
+      if (!text) continue;
+
       const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
       const parsed = JSON.parse(cleanedText);
@@ -151,7 +216,7 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
         parsed.forEach((q, idx) => {
           const qText = String(q.question || '').trim();
           const normKey = qText.toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (normKey && seenKeys.has(normKey)) return; // Skip duplicate
+          if (normKey && seenKeys.has(normKey)) return;
           if (normKey) seenKeys.add(normKey);
 
           const rawOpts = Array.isArray(q.options) ? q.options : [];
@@ -170,6 +235,7 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
           });
         });
 
+        console.log(`✅ Model ${mName} successfully extracted ${results.length} questions!`);
         return results;
       }
     } catch (err) {
