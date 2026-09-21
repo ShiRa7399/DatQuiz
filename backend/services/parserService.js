@@ -43,20 +43,21 @@ async function parseQuestionsFromBuffer(buffer, mimeType, originalName, requestA
 
   if (apiKey) {
     try {
-      console.log('🤖 Forwarding PDF buffer to Gemini AI. Testing models: gemini-3.8-flash, gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash-lite...');
+      console.log('🤖 Forwarding PDF buffer to Gemini AI. Testing models: gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.6-flash, gemini-3.0-flash, gemini-2.0-flash...');
       const result = await parseWithGeminiAI(buffer, mimeType, originalName, apiKey);
       if (result && result.questions && result.questions.length > 0) {
         console.log(`✨ Gemini AI (${result.modelUsed}) successfully extracted ${result.questions.length} distinct questions!`);
         return result;
       }
     } catch (err) {
-      console.warn('⚠️ Gemini AI extraction failed across model chain:', err.message);
+      console.warn('⚠️ Gemini AI extraction error:', err.message);
+      throw new Error(`Gemini AI Error (${err.message})`);
     }
   } else {
     console.log('ℹ️ Gemini API key not found in backend/config/geminiConfig.json or env. Using local parser fallback.');
   }
 
-  // Local fallback parser
+  // Local fallback parser only if no API key is present
   const localQuestions = await parseLocalFallback(buffer, mimeType, originalName);
   return {
     questions: localQuestions,
@@ -121,8 +122,15 @@ function unbundleOptions(optionsArray) {
 async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
-  // Confirmed official Google AI Studio Gemini model identifiers (fastest & 100% active)
+  // Gemini 3.x & 2.x Flash models array
   const modelNames = [
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
+    "gemini-3.0-flash",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "gemini-3.1-flash-lite",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-1.5-flash",
