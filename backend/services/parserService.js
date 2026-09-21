@@ -37,6 +37,7 @@ function getGeminiApiKey(customApiKey) {
 /**
  * Parses raw text or PDF buffer into structured JSON questions array.
  * Uses Gemini API (from config/geminiConfig.json or env) with automatic fallback to pdf-parse + regex.
+ */
 async function parseQuestionsFromBuffer(buffer, mimeType, originalName, requestApiKey = null) {
   const apiKey = getGeminiApiKey(requestApiKey);
 
@@ -61,6 +62,57 @@ async function parseQuestionsFromBuffer(buffer, mimeType, originalName, requestA
     questions: localQuestions,
     modelUsed: 'Local Regex Parser'
   };
+}
+
+/**
+ * Helper to unbundle inline options if a single string contains embedded "A. ... B. ... C. ... D. ..."
+ */
+function unbundleOptions(optionsArray) {
+  if (!Array.isArray(optionsArray) || optionsArray.length === 0) {
+    return ["Option A", "Option B", "Option C", "Option D"];
+  }
+
+  const fullText = optionsArray.join(' ');
+  const regex = /(?:^|\s+|\b)([A-D])[\.\:\)]\s*/gi;
+
+  const positions = [];
+  let match;
+  while ((match = regex.exec(fullText)) !== null) {
+    positions.push({
+      letter: match[1].toUpperCase(),
+      index: match.index,
+      length: match[0].length
+    });
+  }
+
+  if (positions.length >= 2) {
+    const extracted = [];
+    for (let i = 0; i < positions.length; i++) {
+      const start = positions[i].index + positions[i].length;
+      const end = i < positions.length - 1 ? positions[i + 1].index : fullText.length;
+      const optStr = fullText.slice(start, end).trim();
+      if (optStr) {
+        extracted.push(optStr);
+      }
+    }
+    if (extracted.length >= 2) {
+      while (extracted.length < 4) {
+        extracted.push(`Option ${String.fromCharCode(65 + extracted.length)}`);
+      }
+      return extracted.slice(0, 4);
+    }
+  }
+
+  // Standard cleanup
+  const clean = optionsArray.map((opt, idx) => {
+    const str = String(opt || '').trim();
+    return str.replace(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*/i, '').trim() || `Option ${String.fromCharCode(65 + idx)}`;
+  });
+
+  while (clean.length < 4) {
+    clean.push(`Option ${String.fromCharCode(65 + clean.length)}`);
+  }
+  return clean.slice(0, 4);
 }
 
 /**
