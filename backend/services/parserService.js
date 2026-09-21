@@ -222,13 +222,15 @@ function unbundleOptions(optionsArray) {
 async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
 
+  // ONLY Gemini 3.x models array as requested by user
   const modelNames = [
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
     "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
     "gemini-3.0-flash",
-    "gemini-1.5-flash-8b"
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "gemini-3.1-flash-lite"
   ];
 
   const isPdf = mimeType === 'application/pdf' || (originalName && originalName.endsWith('.pdf'));
@@ -250,29 +252,40 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const prompt = `You are an expert exam creator and document parser. Extract ALL distinct multiple-choice questions (MCQs) from this document section.
 CRITICAL INSTRUCTIONS:
 1. IGNORE cover page titles, header banners, university/school names, dates, course codes, exam instructions, total marks headers, and page footers.
-2. MUST EXTRACT EVERY SINGLE QUESTION: You MUST extract Question 1, Question 2, Question 3... all questions present in this section from top to bottom. DO NOT stop after 1 or 2 questions! Parse ALL questions!
+2. MUST EXTRACT EVERY SINGLE QUESTION: You MUST extract Question 1, Question 2, Question 3... all questions present in this section from top to bottom. DO NOT stop after 1 question! Output EVERY question in full!
 3. OPTIONS UNBUNDLING:
    - Separate every option into an individual string in the "options" array: ["Option A text", "Option B text", "Option C text", "Option D text"].
 4. "correctAnswer" must be a single uppercase letter: "A", "B", "C", or "D".
-5. Return ONLY a valid JSON array matching this exact format:
+5. Return ONLY a valid JSON array matching this exact format containing EVERY question:
 
 [
   {
     "id": "q_1",
-    "question": "Which concept is most closely related to object-oriented analysis and design?",
-    "options": [
-      "Encapsulation",
-      "Assembly Language",
-      "Binary Search",
-      "CPU Scheduling"
-    ],
+    "question": "First question text extracted in full?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
     "correctAnswer": "A",
     "marks": 1,
-    "explanation": "Encapsulation is a core concept of OOAD."
+    "explanation": "Explanation for question 1"
+  },
+  {
+    "id": "q_2",
+    "question": "Second question text extracted in full?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswer": "B",
+    "marks": 1,
+    "explanation": "Explanation for question 2"
+  },
+  {
+    "id": "q_3",
+    "question": "Third question text extracted in full?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswer": "C",
+    "marks": 1,
+    "explanation": "Explanation for question 3"
   }
 ]
 
-Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain text.`;
+Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain text. Do not stop early.`;
 
   // Use Universal Question Splitter
   const textChunks = splitTextIntoQuestionBatches(pdfText);
