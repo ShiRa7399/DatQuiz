@@ -14,18 +14,23 @@ router.post('/upload', requireAuth, upload.any(), async (req, res) => {
     let filesToProcess = req.files || [];
     const requestApiKey = req.headers['x-gemini-api-key'] || req.body.apiKey || null;
 
+    let modelsUsedList = [];
     if (filesToProcess.length > 0) {
       for (const file of filesToProcess) {
-        const parsed = await parseQuestionsFromBuffer(
+        const result = await parseQuestionsFromBuffer(
           file.buffer,
           file.mimetype,
           file.originalname,
           requestApiKey
         );
-        allQuestions = allQuestions.concat(parsed);
+        const questionsList = Array.isArray(result) ? result : (result?.questions || []);
+        const modelName = result?.modelUsed || 'Gemini AI';
+        allQuestions = allQuestions.concat(questionsList);
+        if (!modelsUsedList.includes(modelName)) modelsUsedList.push(modelName);
       }
     } else if (req.body.text) {
       allQuestions = parseTextToQuestions(req.body.text);
+      modelsUsedList.push('Text Parser');
     } else {
       return res.status(400).json({ error: 'Please select one or more .pdf or .txt files.' });
     }
@@ -38,11 +43,13 @@ router.post('/upload', requireAuth, upload.any(), async (req, res) => {
       ? req.body.title 
       : defaultTitle;
 
+    const modelInfoStr = modelsUsedList.length > 0 ? `Parsed via ${modelsUsedList.join(', ')}` : `AI-Parsed from ${filesToProcess.length || 1} file(s)`;
+
     const newQuestionBank = {
       id: `qb_${Date.now()}`,
       facultyId: req.user.id,
       title,
-      description: req.body.description || `AI-Parsed from ${filesToProcess.length || 1} file(s)`,
+      description: req.body.description || modelInfoStr,
       createdAt: new Date().toISOString(),
       questions: allQuestions
     };
@@ -52,8 +59,9 @@ router.post('/upload', requireAuth, upload.any(), async (req, res) => {
     writeStore(store);
 
     return res.json({
-      message: `Successfully processed ${filesToProcess.length || 1} file(s) with ${allQuestions.length} questions!`,
-      questionBank: newQuestionBank
+      message: `Successfully processed ${filesToProcess.length || 1} file(s) with ${allQuestions.length} questions! (${modelInfoStr})`,
+      questionBank: newQuestionBank,
+      modelUsed: modelsUsedList.join(', ')
     });
   } catch (err) {
     console.error('Question Bank Upload error:', err);

@@ -37,95 +37,51 @@ function getGeminiApiKey(customApiKey) {
 /**
  * Parses raw text or PDF buffer into structured JSON questions array.
  * Uses Gemini API (from config/geminiConfig.json or env) with automatic fallback to pdf-parse + regex.
- */
 async function parseQuestionsFromBuffer(buffer, mimeType, originalName, requestApiKey = null) {
   const apiKey = getGeminiApiKey(requestApiKey);
 
   if (apiKey) {
     try {
-      console.log('🤖 Forwarding PDF buffer directly to Gemini AI for multi-question extraction (key active)...');
-      const questions = await parseWithGeminiAI(buffer, mimeType, originalName, apiKey);
-      if (questions && questions.length > 0) {
-        console.log(`✨ Gemini AI successfully extracted ${questions.length} distinct questions!`);
-        return questions;
+      console.log('🤖 Forwarding PDF buffer to Gemini AI. Testing models: gemini-3.8-flash, gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash-lite...');
+      const result = await parseWithGeminiAI(buffer, mimeType, originalName, apiKey);
+      if (result && result.questions && result.questions.length > 0) {
+        console.log(`✨ Gemini AI (${result.modelUsed}) successfully extracted ${result.questions.length} distinct questions!`);
+        return result;
       }
     } catch (err) {
-      console.warn('⚠️ Gemini AI extraction error, using local parser fallback:', err.message);
+      console.warn('⚠️ Gemini AI extraction failed across model chain:', err.message);
     }
   } else {
-    console.log('ℹ️ Gemini API key not found in backend/config/geminiConfig.json or env. Using local pdf-parse + regex parser.');
+    console.log('ℹ️ Gemini API key not found in backend/config/geminiConfig.json or env. Using local parser fallback.');
   }
 
   // Local fallback parser
-  return parseLocalFallback(buffer, mimeType, originalName);
+  const localQuestions = await parseLocalFallback(buffer, mimeType, originalName);
+  return {
+    questions: localQuestions,
+    modelUsed: 'Local Regex Parser'
+  };
 }
 
 /**
- * Helper to unbundle inline options if a single string contains embedded "A. ... B. ... C. ... D. ..."
- */
-function unbundleOptions(optionsArray) {
-  if (!Array.isArray(optionsArray) || optionsArray.length === 0) {
-    return ["Option A", "Option B", "Option C", "Option D"];
-  }
-
-  const fullText = optionsArray.join(' ');
-  const regex = /(?:^|\s+|\b)([A-D])[\.\:\)]\s*/gi;
-
-  const positions = [];
-  let match;
-  while ((match = regex.exec(fullText)) !== null) {
-    positions.push({
-      letter: match[1].toUpperCase(),
-      index: match.index,
-      length: match[0].length
-    });
-  }
-
-  if (positions.length >= 2) {
-    const extracted = [];
-    for (let i = 0; i < positions.length; i++) {
-      const start = positions[i].index + positions[i].length;
-      const end = i < positions.length - 1 ? positions[i + 1].index : fullText.length;
-      const optStr = fullText.slice(start, end).trim();
-      if (optStr) {
-        extracted.push(optStr);
-      }
-    }
-    if (extracted.length >= 2) {
-      while (extracted.length < 4) {
-        extracted.push(`Option ${String.fromCharCode(65 + extracted.length)}`);
-      }
-      return extracted.slice(0, 4);
-    }
-  }
-
-  // Standard cleanup
-  const clean = optionsArray.map((opt, idx) => {
-    const str = String(opt || '').trim();
-    return str.replace(/^(?:[A-D]|\([A-D]\)|Option\s*[A-D])[\.\:\)]\s*/i, '').trim() || `Option ${String.fromCharCode(65 + idx)}`;
-  });
-
-  while (clean.length < 4) {
-    clean.push(`Option ${String.fromCharCode(65 + clean.length)}`);
-  }
-  return clean.slice(0, 4);
-}
-
-/**
- * AI-powered PDF & document parser using Gemini Flash / Lite AI models
- */
+  * AI-powered PDF & document parser using Gemini Flash & Lite models
+  */
 async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
+  // List of Gemini model versions prioritized as requested by user
   const modelNames = [
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3.5-flash",
-    "gemini-3.1-lite",
     "gemini-3.1-flash-lite",
-    "gemini-3.1-lite-preview",
+    "gemini-3.1-lite",
     "gemini-2.5-flash",
+    "gemini-2.5-pro",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-2.0-flash-exp",
     "gemini-1.5-flash",
     "gemini-1.5-pro"
   ];
@@ -134,6 +90,19 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const isPdf = mimeType === 'application/pdf' || (originalName && originalName.endsWith('.pdf'));
   const effectiveMimeType = isPdf ? 'application/pdf' : 'text/plain';
   const base64Data = buffer.toString('base64');
+
+  // Pre-extract text from PDF if possible so Gemini receives text AND/OR binary inline data
+  let pdfText = '';
+  if (isPdf) {
+    try {
+      const pdfData = await pdfParse(buffer);
+      pdfText = pdfData.text || '';
+    } catch (err) {
+      console.log('ℹ️ PDF text pre-extraction note:', err.message);
+    }
+  } else {
+    pdfText = buffer.toString('utf-8');
+  }
 
   const prompt = `You are an expert exam creator and document parser. Extract ALL distinct multiple-choice questions (MCQs) from this uploaded document.
 CRITICAL INSTRUCTIONS:
@@ -168,47 +137,61 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
     try {
       console.log(`🤖 Attempting Gemini extraction with model: ${mName}...`);
       let text = '';
+
+      // Prepare payload content parts (Text + Binary inline data if PDF)
+      const contentsParts = [];
+      if (pdfText && pdfText.trim().length > 30) {
+        contentsParts.push({ text: `DOCUMENT EXTRACTED TEXT:\n${pdfText.slice(0, 80000)}` });
+      }
+      if (isPdf && base64Data) {
+        contentsParts.push({
+          inlineData: {
+            data: base64Data,
+            mimeType: effectiveMimeType
+          }
+        });
+      }
+      contentsParts.push({ text: prompt });
+
       try {
         const model = genAI.getGenerativeModel({ model: mName });
-        const result = await model.generateContent([
-          {
-            inlineData: {
-              data: base64Data,
-              mimeType: effectiveMimeType
-            }
-          },
-          prompt
-        ]);
+        const result = await model.generateContent(contentsParts);
         text = result.response.text();
       } catch (sdkErr) {
-        console.log(`ℹ️ SDK call for ${mName} note: ${sdkErr.message}. Trying direct REST fallback...`);
-        // Fallback to direct REST API call if SDK call fails
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { inline_data: { mime_type: effectiveMimeType, data: base64Data } },
-                { text: prompt }
-              ]
-            }]
-          })
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`Gemini REST API error ${res.status}: ${errText}`);
+        console.log(`ℹ️ SDK call for ${mName} note (${sdkErr.message}). Trying text-only SDK prompt...`);
+        // Retry SDK call with text-only if binary inlineData failed on this model
+        try {
+          const model = genAI.getGenerativeModel({ model: mName });
+          const textOnlyParts = pdfText ? [{ text: `DOCUMENT TEXT:\n${pdfText.slice(0, 80000)}` }, { text: prompt }] : [prompt];
+          const result = await model.generateContent(textOnlyParts);
+          text = result.response.text();
+        } catch (textSdkErr) {
+          console.log(`ℹ️ Text-only SDK call for ${mName} note (${textSdkErr.message}). Trying REST API...`);
+          // REST API fallback
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${apiKey}`;
+          const restParts = pdfText 
+            ? [{ text: `DOCUMENT TEXT:\n${pdfText.slice(0, 80000)}` }, { text: prompt }]
+            : [{ inline_data: { mime_type: effectiveMimeType, data: base64Data } }, { text: prompt }];
+
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: restParts }] })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Gemini REST API error ${res.status}: ${errText}`);
+          }
+          const resData = await res.json();
+          text = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         }
-        const resData = await res.json();
-        text = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       }
 
       if (!text) continue;
 
       const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
       const parsed = JSON.parse(cleanedText);
+
       if (Array.isArray(parsed) && parsed.length > 0) {
         const seenKeys = new Set();
         const results = [];
@@ -231,12 +214,16 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
             options: cleanOpts,
             correctAnswer: ansLetter,
             marks: parseInt(q.marks, 10) || 1,
-            explanation: q.explanation || 'Refer to study material.'
+            explanation: q.explanation || 'Refer to study material.',
+            parsedBy: `Gemini AI (${mName})`
           });
         });
 
         console.log(`✅ Model ${mName} successfully extracted ${results.length} questions!`);
-        return results;
+        return {
+          questions: results,
+          modelUsed: `Gemini AI (${mName})`
+        };
       }
     } catch (err) {
       lastErr = err;
@@ -245,6 +232,8 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
   }
 
   if (lastErr) throw lastErr;
+  return null;
+}ow lastErr;
   return [];
 }
 

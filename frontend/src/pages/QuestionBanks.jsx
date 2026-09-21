@@ -62,7 +62,10 @@ export default function QuestionBanks() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      setStatusMsg({ type: 'success', text: `Successfully parsed ${res.data.questionBank.questions.length} questions from ${files.length} file(s)!` });
+      setStatusMsg({ 
+        type: 'success', 
+        text: res.data.message || `Successfully parsed ${res.data.questionBank.questions.length} questions from ${files.length} file(s)!` 
+      });
       setFiles([]);
       setTitle('');
       setDescription('');

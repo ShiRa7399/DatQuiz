@@ -20,6 +20,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       localStorage.setItem('faculty_user', JSON.stringify(user));
+      if (!localStorage.getItem('faculty_token')) {
+        localStorage.setItem('faculty_token', `token_${user.id || 'faculty_1'}`);
+      }
     } else {
       localStorage.removeItem('faculty_user');
       localStorage.removeItem('faculty_token');
@@ -45,7 +48,7 @@ export const AuthProvider = ({ children }) => {
         department: 'Academic Faculty'
       };
       setUser(mockUser);
-      localStorage.setItem('faculty_token', `mock_token_${Date.now()}`);
+      localStorage.setItem('faculty_token', `token_${mockUser.id}`);
       return { success: true };
     } finally {
       setLoading(false);
@@ -90,7 +93,11 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (err) {
       console.error('Google Sign-In error:', err);
-      return { success: false, error: err.message || 'Google Sign-In failed.' };
+      let errMsg = err.message || 'Google Sign-In failed.';
+      if (err.code === 'auth/unauthorized-domain' || errMsg.includes('unauthorized-domain')) {
+        errMsg = `Firebase Error (auth/unauthorized-domain): This domain (${window.location.hostname}) is not authorized in Firebase Console. Please add it to Firebase Console -> Authentication -> Settings -> Authorized domains.`;
+      }
+      return { success: false, error: errMsg };
     } finally {
       setLoading(false);
     }
