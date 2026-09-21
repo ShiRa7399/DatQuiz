@@ -1,7 +1,7 @@
 {
-  "name": "quiz-genius-backend",
+  "name": "datquiz-backend",
   "version": "1.0.0",
-  "description": "Express REST API backend for Quiz Genius LMS",
+  "description": "Express REST API backend for DatQuiz LMS",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -33,7 +33,7 @@ export default function Navbar() {
             target="_blank"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-brand-800 hover:bg-brand-900 border border-brand-600 rounded-lg transition-colors"
           >
-            <ExternalLink className="w-3.5 h-3.5" /> Student Portal
+            <ExternalLink className="w-3.5 h-3.5" /> User Portal
           </Link>
 
           <Link

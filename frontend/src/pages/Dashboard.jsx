@@ -130,7 +130,7 @@ export default function Dashboard() {
 
       {/* Top App Bar */}
       <header className="h-14 bg-[#e65c00] text-white px-6 flex items-center justify-between shadow-none shrink-0">
-        <h1 className="text-xl font-bold text-white tracking-tight">Faculty Dashboard</h1>
+        <h1 className="text-xl font-bold text-white tracking-tight">Dashboard</h1>
 
         <button
           onClick={handleLogout}
@@ -147,7 +147,7 @@ export default function Dashboard() {
         {loading ? (
           <div className="py-20 text-center">
             <RefreshCw className="w-8 h-8 text-[#e65c00] animate-spin mx-auto mb-2" />
-            <p className="text-xs text-slate-500 font-medium">Loading Faculty Dashboard...</p>
+            <p className="text-xs text-slate-500 font-medium">Loading Dashboard...</p>
           </div>
         ) : (
           <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-6">

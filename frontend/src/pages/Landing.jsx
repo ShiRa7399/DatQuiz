@@ -12,7 +12,7 @@ export default function Landing() {
           to="/login"
           className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#e65c00] text-[#e65c00] bg-white/70 hover:bg-white text-sm font-semibold transition-all shadow-sm"
         >
-          <LogIn className="w-4 h-4" /> Faculty Login
+          <LogIn className="w-4 h-4" /> Login
         </Link>
       </div>
 
@@ -40,16 +40,16 @@ export default function Landing() {
         {/* Dual Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto pt-4">
           
-          {/* Student Card */}
+          {/* User Card */}
           <div className="bg-white rounded-[24px] border border-orange-200/80 p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-between text-center space-y-6">
             <div className="w-14 h-14 rounded-2xl bg-orange-100/80 flex items-center justify-center text-[#e65c00]">
               <GraduationCap className="w-8 h-8" />
             </div>
 
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Student</h2>
+              <h2 className="text-xl font-bold text-slate-900">User</h2>
               <p className="text-xs text-slate-500 mt-2 max-w-xs leading-relaxed">
-                Enter a code to join your classroom's live quiz.
+                Enter a code to join a live quiz.
               </p>
             </div>
 
@@ -62,16 +62,16 @@ export default function Landing() {
             </Link>
           </div>
 
-          {/* Faculty Card */}
+          {/* Quiz Creator Card */}
           <div className="bg-white rounded-[24px] border border-orange-200/80 p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-between text-center space-y-6">
             <div className="w-14 h-14 rounded-2xl bg-orange-100/80 flex items-center justify-center text-[#e65c00]">
               <User className="w-8 h-8" />
             </div>
 
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Faculty</h2>
+              <h2 className="text-xl font-bold text-slate-900">Quiz Creator</h2>
               <p className="text-xs text-slate-500 mt-2 max-w-xs leading-relaxed">
-                Create and manage quizzes for your students.
+                Create and manage quizzes for users.
               </p>
             </div>
 
@@ -90,7 +90,7 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="text-center text-xs text-slate-400 py-4">
-        Dat Quiz LMS Platform &bull; Production Ready Assessment Engine
+        DatQuiz LMS Platform &bull; Production Ready Assessment Engine
       </footer>
 
     </div>

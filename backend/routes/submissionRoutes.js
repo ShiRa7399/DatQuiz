@@ -59,7 +59,7 @@ router.post('/submit', (req, res) => {
     id: `sub_${Date.now()}`,
     quizCode: code,
     regNo: regNo.trim(),
-    studentName: studentName || 'Student',
+    studentName: studentName || 'User',
     answers: answers || {},
     score,
     totalPossible,
@@ -127,7 +127,7 @@ router.delete('/:code/:regNo', async (req, res) => {
   );
 
   if (index === -1) {
-    return res.status(404).json({ error: 'Submission not found for this student.' });
+    return res.status(404).json({ error: 'Submission not found for this user.' });
   }
 
   const removedSub = store.submissions[index];

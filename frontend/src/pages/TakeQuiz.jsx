@@ -204,7 +204,7 @@ export default function TakeQuiz() {
   const isRevealed = isPracticeMode && !!revealedQuestions[currentQ?.id];
   const selectedOpt = userAnswers[currentQ?.id];
   const isCorrectAnswer = selectedOpt === currentQ?.correctAnswer;
-  const showMarksOnSubmitted = isPracticeMode || !!quiz.showMarksToStudents;
+  const showMarksOnSubmitted = isPracticeMode || !!(quiz.showMarksToUsers ?? quiz.showMarksToStudents);
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -221,8 +221,8 @@ export default function TakeQuiz() {
             <CheckCircle2 className="w-10 h-10" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900">Assessment Submitted!</h1>
-            <p className="text-xs text-slate-500 mt-1">Thank you, {name} ({regNo}). Your response has been recorded.</p>
+            <h1 className="text-2xl font-extrabold text-slate-900">Assessment Submitted Successfully!</h1>
+            <p className="text-xs text-slate-500 mt-1">Thank you, {name} ({regNo}). Your responses have been recorded.</p>
           </div>
 
           {showMarksOnSubmitted ? (
@@ -237,15 +237,15 @@ export default function TakeQuiz() {
             </div>
           ) : (
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
-              <p className="text-xs font-bold text-slate-500 uppercase">Assessment Submitted</p>
-              <p className="text-sm font-bold text-slate-800">Your answers have been recorded for faculty review.</p>
-              <p className="text-[11px] text-slate-400">Marks will be published by your faculty.</p>
+              <p className="text-xs font-bold text-slate-500 uppercase">Submission Confirmation</p>
+              <p className="text-sm font-bold text-slate-800">Your answers have been successfully saved.</p>
+              <p className="text-[11px] text-slate-500 leading-relaxed">Scores and detailed feedback will be available once evaluation is complete.</p>
             </div>
           )}
 
           {tabSwitchCount > 0 && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium">
-              ⚠️ {tabSwitchCount} Tab Switches recorded and flagged for faculty review.
+              ⚠️ {tabSwitchCount} Tab Switch(es) recorded and flagged for review.
             </div>
           )}
 

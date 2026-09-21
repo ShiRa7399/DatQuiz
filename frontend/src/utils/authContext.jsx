@@ -7,11 +7,11 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('faculty_user');
+    const saved = localStorage.getItem('app_user') || localStorage.getItem('faculty_user');
     return saved ? JSON.parse(saved) : {
-      id: 'faculty_1',
-      name: 'Dr. Sarah Jenkins',
-      email: 'faculty@quizgenius.edu',
+      id: 'user_1',
+      name: 'Sarah Jenkins',
+      email: 'user@datquiz.com',
       department: 'Computer Science & Engineering'
     };
   });
@@ -19,12 +19,17 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (user) {
+      localStorage.setItem('app_user', JSON.stringify(user));
       localStorage.setItem('faculty_user', JSON.stringify(user));
-      if (!localStorage.getItem('faculty_token')) {
-        localStorage.setItem('faculty_token', `token_${user.id || 'faculty_1'}`);
+      if (!localStorage.getItem('app_token')) {
+        const t = localStorage.getItem('faculty_token') || `token_${user.id || 'user_1'}`;
+        localStorage.setItem('app_token', t);
+        localStorage.setItem('faculty_token', t);
       }
     } else {
+      localStorage.removeItem('app_user');
       localStorage.removeItem('faculty_user');
+      localStorage.removeItem('app_token');
       localStorage.removeItem('faculty_token');
     }
   }, [user]);
@@ -35,6 +40,7 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post('/auth/login', { email, password });
       setUser(res.data.user);
       if (res.data.token) {
+        localStorage.setItem('app_token', res.data.token);
         localStorage.setItem('faculty_token', res.data.token);
       }
       return { success: true };
@@ -42,12 +48,13 @@ export const AuthProvider = ({ children }) => {
       console.warn('Backend login fallback active:', err);
       // Fallback for immediate smooth UI testing
       const mockUser = {
-        id: 'faculty_1',
-        name: email.split('@')[0].toUpperCase() || 'Faculty Member',
+        id: 'user_1',
+        name: email.split('@')[0].toUpperCase() || 'User',
         email,
-        department: 'Academic Faculty'
+        department: 'Academics'
       };
       setUser(mockUser);
+      localStorage.setItem('app_token', `token_${mockUser.id}`);
       localStorage.setItem('faculty_token', `token_${mockUser.id}`);
       return { success: true };
     } finally {
@@ -81,14 +88,15 @@ export const AuthProvider = ({ children }) => {
         console.warn('Backend Google Auth endpoint fallback active:', backendErr);
         userData = {
           id: `google_${googleUser.uid}`,
-          name: googleUser.displayName || 'Google Faculty',
+          name: googleUser.displayName || 'Google User',
           email: googleUser.email,
-          department: 'Academic Faculty',
+          department: 'Academics',
           avatar: googleUser.photoURL
         };
       }
 
       setUser(userData);
+      localStorage.setItem('app_token', token);
       localStorage.setItem('faculty_token', token);
       return { success: true };
     } catch (err) {
@@ -109,14 +117,15 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post('/auth/signup', { name, email, password, department });
       setUser(res.data.user);
       if (res.data.token) {
+        localStorage.setItem('app_token', res.data.token);
         localStorage.setItem('faculty_token', res.data.token);
       }
       return { success: true };
     } catch (err) {
       console.warn('Backend signup fallback active:', err);
       const mockUser = {
-        id: `faculty_${Date.now()}`,
-        name: name || 'Faculty Member',
+        id: `user_${Date.now()}`,
+        name: name || 'User',
         email,
         department: department || 'General Academics'
       };
@@ -129,7 +138,9 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('app_user');
     localStorage.removeItem('faculty_user');
+    localStorage.removeItem('app_token');
     localStorage.removeItem('faculty_token');
   };
 

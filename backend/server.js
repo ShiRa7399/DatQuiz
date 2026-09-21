@@ -33,7 +33,7 @@ app.use('/api/submission', submissionRoutes);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
-    app: 'Quiz Genius LMS API',
+    app: 'DatQuiz LMS API',
     timestamp: new Date().toISOString()
   });
 });
@@ -46,7 +46,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`=================================================`);
-  console.log(`⚡ Quiz Genius LMS API Server running on port ${PORT}`);
+  console.log(`⚡ DatQuiz LMS API Server running on port ${PORT}`);
   console.log(`⚡ Health Check: http://localhost:${PORT}/api/health`);
   console.log(`=================================================`);
 });

@@ -79,13 +79,13 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
   };
 
   const handleStopQuiz = async () => {
-    if (!window.confirm(`Are you sure you want to force end quiz ${quiz.quizCode}? Students will no longer be able to join or attempt.`)) return;
+    if (!window.confirm(`Are you sure you want to force end quiz ${quiz.quizCode}? Users will no longer be able to join or attempt.`)) return;
 
     setStatusMsg({ type: 'info', text: 'Stopping quiz...' });
     try {
       const res = await api.post(`/quiz/${quiz.quizCode}/stop`);
       setQuiz(res.data.quiz);
-      setStatusMsg({ type: 'success', text: 'Quiz has been force ended by faculty.' });
+      setStatusMsg({ type: 'success', text: 'Quiz has been force ended.' });
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error('Stop quiz error:', err);
@@ -160,11 +160,11 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
     }
 
     setDispatching(true);
-    setStatusMsg({ type: 'info', text: 'Dispatching student email invites...' });
+    setStatusMsg({ type: 'info', text: 'Dispatching user email invites...' });
     try {
       const res = await api.post('/quiz/send-invites', {
         quizCode: quiz.quizCode,
-        facultyEmail: 'faculty@datquiz.edu',
+        userEmail: 'user@datquiz.com',
         frontendUrl: window.location.origin
       });
 
@@ -172,12 +172,12 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
       if (results?.simulated) {
         setStatusMsg({ 
           type: 'success', 
-          text: `Processed ${results.sent} student invite emails!` 
+          text: `Processed ${results.sent} user invite emails!` 
         });
       } else {
         setStatusMsg({ 
           type: 'success', 
-          text: `Successfully sent ${results.sent} direct invitation emails to students!` 
+          text: `Successfully sent ${results.sent} direct invitation emails to users!` 
         });
       }
 
@@ -191,7 +191,7 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
 
 
   const handleRevoke = async (regNo) => {
-    if (!window.confirm(`Revoke attempt for student ${regNo}?`)) return;
+    if (!window.confirm(`Revoke attempt for ${regNo}?`)) return;
     try {
       await api.delete(`/submission/${quiz.quizCode}/${encodeURIComponent(regNo)}`);
       fetchSubmissions();
@@ -318,7 +318,7 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
                     {quiz.isStopped || (quiz.endTime && new Date(quiz.endTime) < new Date()) ? '🔴 QUIZ ENDED' : '🟢 QUIZ ACTIVE'}
                   </span>
                   <p className="text-xs text-slate-500 font-semibold hidden sm:block">
-                    {quiz.isStopped ? 'This quiz was force ended by faculty.' : 'Active & open for student responses.'}
+                    {quiz.isStopped ? 'This quiz was force ended.' : 'Active & open for user responses.'}
                   </p>
                 </div>
 
@@ -342,9 +342,9 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
                       <FileSpreadsheet className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-sm text-slate-900">Excel Student Roster</h3>
+                      <h3 className="font-bold text-sm text-slate-900">Excel User Roster</h3>
                       <p className="text-xs text-gray-500">
-                        {quiz.roster?.length || 0} Students currently uploaded
+                        {quiz.roster?.length || 0} Users currently uploaded
                       </p>
                     </div>
                   </div>
@@ -502,8 +502,8 @@ export default function QuizManagementModal({ quiz: initialQuiz, onClose, onRefr
                       className="w-4 h-4 mt-0.5 text-orange-700 rounded focus:ring-orange-600 accent-orange-700"
                     />
                     <div>
-                      <span className="text-xs font-bold text-slate-900 block">Show Marks to Students After Exam (Default: OFF)</span>
-                      <span className="text-[11px] text-slate-500 block">If disabled (default), student score is hidden on final submission screen.</span>
+                      <span className="text-xs font-bold text-slate-900 block">Show Marks to Users After Exam (Default: OFF)</span>
+                      <span className="text-[11px] text-slate-500 block">If disabled (default), user score is hidden on final submission screen.</span>
                     </div>
                   </label>
                 </div>

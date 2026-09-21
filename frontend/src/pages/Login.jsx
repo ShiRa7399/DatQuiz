@@ -39,7 +39,7 @@ export default function Login() {
         <Link to="/" className="p-1 hover:bg-orange-800 rounded-lg transition-colors" title="Back to Home">
           <ArrowLeft className="w-6 h-6" />
         </Link>
-        <h1 className="font-extrabold text-lg tracking-tight">Faculty Login</h1>
+        <h1 className="font-extrabold text-lg tracking-tight">Login</h1>
       </header>
 
       {/* Main Form Container */}
@@ -51,7 +51,7 @@ export default function Login() {
             <div className="w-16 h-16 rounded-2xl bg-orange-100/80 text-[#e65c00] mx-auto flex items-center justify-center mb-3">
               <ShieldCheck className="w-10 h-10" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900">Faculty Login</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Login</h2>
           </div>
 
           {error && (

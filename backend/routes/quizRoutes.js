@@ -196,7 +196,7 @@ router.post('/:code/roster', requireAuth, upload.single('file'), (req, res) => {
     writeStore(store);
 
     return res.json({
-      message: `Successfully uploaded roster with ${newRoster.length} students.`,
+      message: `Successfully uploaded roster with ${newRoster.length} users.`,
       roster: quiz.roster
     });
   } catch (err) {
@@ -208,7 +208,7 @@ router.post('/:code/roster', requireAuth, upload.single('file'), (req, res) => {
 // Bulk Email Dispatch API Endpoint: /api/quiz/send-invites
 router.post('/send-invites', requireAuth, async (req, res) => {
   try {
-    const { quizCode, facultyEmail, frontendUrl } = req.body;
+    const { quizCode, userEmail, facultyEmail, frontendUrl } = req.body;
     if (!quizCode) return res.status(400).json({ error: 'quizCode is required.' });
 
     const store = readStore();
@@ -217,14 +217,14 @@ router.post('/send-invites', requireAuth, async (req, res) => {
 
     if (!quiz) return res.status(404).json({ error: 'Quiz not found or unauthorized.' });
     if (!quiz.roster || quiz.roster.length === 0) {
-      return res.status(400).json({ error: 'Quiz has no student roster uploaded yet.' });
+      return res.status(400).json({ error: 'Quiz has no user roster uploaded yet.' });
     }
 
     // Trigger async dispatch loop
     const dispatchResults = await sendBulkQuizInvites({
       roster: quiz.roster,
       quiz,
-      facultyEmail: facultyEmail || 'faculty@quizgenius.edu',
+      userEmail: userEmail || facultyEmail || 'user@datquiz.com',
       frontendUrl
     });
 

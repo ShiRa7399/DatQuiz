@@ -52,10 +52,10 @@ async function getTransporter() {
 }
 
 /**
- * Sends invitation emails to student roster and a summary receipt to faculty.
+ * Sends invitation emails to user roster.
  * Supports Google Apps Script Webhook (GOOGLE_SCRIPT_URL) or Nodemailer SMTP.
  */
-async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) {
+async function sendBulkQuizInvites({ roster, quiz, userEmail, frontendUrl }) {
   const mailer = await getTransporter();
   const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL;
   const results = { 
@@ -69,25 +69,25 @@ async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) 
     return results;
   }
 
-  for (const student of roster) {
-    const studentEmail = (student.email || student.Email || (student.regNo ? `${student.regNo.toLowerCase()}@student.edu` : '')).trim();
+  for (const userItem of roster) {
+    const targetEmail = (userItem.email || userItem.Email || (userItem.regNo ? `${userItem.regNo.toLowerCase()}@datquiz.com` : '')).trim();
 
-    if (!studentEmail) {
+    if (!targetEmail) {
       results.failed++;
       continue;
     }
 
-    const joinLink = `${baseUrl}/#/join?code=${encodeURIComponent(quiz.quizCode)}&reg=${encodeURIComponent(student.regNo || '')}&name=${encodeURIComponent(student.name || '')}`;
+    const joinLink = `${baseUrl}/#/join?code=${encodeURIComponent(quiz.quizCode)}&reg=${encodeURIComponent(userItem.regNo || '')}&name=${encodeURIComponent(userItem.name || '')}`;
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background-color: #ffffff; padding: 24px; border-radius: 16px; border: 1px solid #e2e8f0;">
         <div style="text-align: center; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px;">
-          <h1 style="color: #ea580c; font-size: 22px; margin: 0; font-weight: 800;">⚡ DatQuiz</h1>
+          <h1 style="color: #ea580c; font-size: 22px; margin: 0; font-weight: 800;">⚡ DatQuiz LMS</h1>
           <p style="color: #64748b; font-size: 13px; margin-top: 4px; font-weight: 600;">Online Assessment Invitation</p>
         </div>
 
         <div>
-          <h2 style="color: #0f172a; font-size: 16px; margin-top: 0;">Hello, ${student.name || 'Student'}!</h2>
+          <h2 style="color: #0f172a; font-size: 16px; margin-top: 0;">Hello, ${userItem.name || 'User'}!</h2>
           <p style="color: #334155; font-size: 14px; line-height: 1.5;">
             You have been registered for the online assessment: <strong>${quiz.title}</strong>.
           </p>
@@ -99,7 +99,7 @@ async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) 
             </tr>
             <tr>
               <td style="padding: 10px; color: #64748b; font-weight: bold; font-size: 13px;">Reg No:</td>
-              <td style="padding: 10px; color: #0f172a; font-weight: bold; font-size: 13px;">${student.regNo || 'N/A'}</td>
+              <td style="padding: 10px; color: #0f172a; font-weight: bold; font-size: 13px;">${userItem.regNo || 'N/A'}</td>
             </tr>
             <tr>
               <td style="padding: 10px; color: #64748b; font-weight: bold; font-size: 13px;">Duration:</td>
@@ -123,29 +123,29 @@ async function sendBulkQuizInvites({ roster, quiz, facultyEmail, frontendUrl }) 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            to: studentEmail,
-            subject: `[DatQuiz] Join Quiz: ${quiz.title} (${quiz.quizCode})`,
+            to: targetEmail,
+            subject: `[DatQuiz LMS] Join Quiz: ${quiz.title} (${quiz.quizCode})`,
             html: htmlContent
           })
         });
         results.sent++;
         continue;
       } catch (gErr) {
-        console.error(`Google Apps Script dispatch error for ${studentEmail}:`, gErr.message);
+        console.error(`Google Apps Script dispatch error for ${targetEmail}:`, gErr.message);
       }
     }
 
     // 2. Nodemailer SMTP or Simulation Dispatch
     try {
       await mailer.sendMail({
-        from: '"DatQuiz" <no-reply@datquiz.edu>',
-        to: studentEmail,
-        subject: `[DatQuiz] Join Quiz: ${quiz.title} (${quiz.quizCode})`,
+        from: '"DatQuiz LMS" <no-reply@datquiz.com>',
+        to: targetEmail,
+        subject: `[DatQuiz LMS] Join Quiz: ${quiz.title} (${quiz.quizCode})`,
         html: htmlContent
       });
       results.sent++;
     } catch (err) {
-      console.error(`Error sending email to ${studentEmail}:`, err.message);
+      console.error(`Error sending email to ${targetEmail}:`, err.message);
       results.failed++;
     }
   }

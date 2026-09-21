@@ -9,10 +9,10 @@ const BACKUP_PATH = path.join(__dirname, 'store.backup.json');
 const defaultState = {
   users: [
     {
-      id: 'faculty_1',
-      email: 'faculty@quizgenius.edu',
+      id: 'user_1',
+      email: 'user@datquiz.com',
       password: 'password123',
-      name: 'Dr. Sarah Jenkins',
+      name: 'Demo User',
       department: 'Computer Science & Engineering'
     }
   ],

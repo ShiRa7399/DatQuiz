@@ -61,7 +61,7 @@ export default function StudentJoin() {
       const statusRes = await api.get(`/submission/check-status?code=${quizCode}&regNo=${encodeURIComponent(registrationNo)}`);
       
       if (statusRes.data.submitted) {
-        throw new Error(`Student registration ${registrationNo} has already completed this quiz.`);
+        throw new Error(`Registration ${registrationNo} has already completed this quiz.`);
       }
 
       sessionStorage.setItem('active_student', JSON.stringify({
@@ -100,11 +100,11 @@ export default function StudentJoin() {
       }
 
       if (quiz.isStopped || (quiz.endTime && new Date(quiz.endTime) < new Date())) {
-        throw new Error(`This quiz has been stopped / force ended by the faculty.`);
+        throw new Error(`This quiz has been stopped / force ended.`);
       }
 
       setVerifiedQuiz(quiz);
-      setStep(2); // Proceed to Step 2: Student Details
+      setStep(2); // Proceed to Step 2: User Details
 
     } catch (err) {
       console.error('Code verification error:', err);
@@ -114,7 +114,7 @@ export default function StudentJoin() {
     }
   };
 
-  // STEP 2: Verify Student Registration & Enter Quiz
+  // STEP 2: Verify Registration & Enter Quiz
   const handleStudentSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -148,7 +148,7 @@ export default function StudentJoin() {
 
 
     } catch (err) {
-      console.error('Student registration submission error:', err);
+      console.error('User registration submission error:', err);
       setError(err.response?.data?.error || err.message || 'Failed to verify registration.');
     } finally {
       setLoading(false);
@@ -181,7 +181,7 @@ export default function StudentJoin() {
             {step === 1 && (
               <div className="space-y-6">
                 <div>
-                  <h1 className="text-2xl font-bold text-center text-orange-700 mb-1">Student Join Portal</h1>
+                  <h1 className="text-2xl font-bold text-center text-orange-700 mb-1">User Join Portal</h1>
                   <p className="text-xs text-center text-gray-500">
                     Enter your 5-letter code to verify your classroom assessment.
                   </p>
@@ -243,7 +243,7 @@ export default function StudentJoin() {
                 </div>
 
                 <div>
-                  <h1 className="text-xl font-bold text-center text-orange-700 mb-1">Student Details</h1>
+                  <h1 className="text-xl font-bold text-center text-orange-700 mb-1">User Details</h1>
                   <p className="text-xs text-center text-gray-500">
                     Enter your Registration Number and Name to begin.
                   </p>
@@ -289,7 +289,7 @@ export default function StudentJoin() {
         {/* Card Footer */}
         <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
           <span className="flex items-center gap-1 font-medium">
-            <ShieldCheck className="w-3.5 h-3.5 text-orange-700" /> Quiz Genius LMS
+            <ShieldCheck className="w-3.5 h-3.5 text-orange-700" /> DatQuiz LMS
           </span>
           <span>Step {step} of 2</span>
         </div>

@@ -41,7 +41,7 @@ export default function Signup() {
         <Link to="/" className="p-1 hover:bg-brand-800 rounded-lg transition-colors" title="Back to Home">
           <ArrowLeft className="w-6 h-6" />
         </Link>
-        <h1 className="font-extrabold text-lg tracking-tight">Faculty Sign Up</h1>
+        <h1 className="font-extrabold text-lg tracking-tight">Sign Up</h1>
       </header>
 
       {/* Form Container */}
@@ -52,7 +52,7 @@ export default function Signup() {
             <div className="w-16 h-16 rounded-2xl bg-orange-100/60 text-brand-700 mx-auto flex items-center justify-center mb-3">
               <UserPlus className="w-10 h-10" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900">Create Faculty Account</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Create Account</h2>
           </div>
 
           {error && (
@@ -122,7 +122,7 @@ export default function Signup() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Faculty Email"
+                  placeholder="Email Address"
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-700 focus:bg-white transition-all"
                 />
               </div>

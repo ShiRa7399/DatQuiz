@@ -1,10 +1,10 @@
 const XLSX = require('xlsx');
 
 /**
- * Parses uploaded Excel roster buffer into JSON list of students.
+ * Parses uploaded Excel roster buffer into JSON list of users.
  * Flexibly accepts Registration No spellings:
  * - "Registration no", "register no", "registration number", "register number", "reg no", "roll no", "id", etc.
- * Preserves exact order of students as uploaded.
+ * Preserves exact order of users as uploaded.
  */
 function parseRosterExcel(fileBuffer) {
   const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
@@ -31,7 +31,8 @@ function parseRosterExcel(fileBuffer) {
         cleanKey.includes('studentno') || 
         cleanKey.includes('studentnum') || 
         cleanKey === 'id' || 
-        cleanKey.includes('studentid')
+        cleanKey.includes('studentid') ||
+        cleanKey.includes('userid')
       ) {
         if (!regNo) regNo = String(row[key]).trim();
       } 
@@ -48,7 +49,7 @@ function parseRosterExcel(fileBuffer) {
     if (regNo || name || email) {
       roster.push({
         regNo: regNo || `REG_${Math.floor(1000 + Math.random() * 9000)}`,
-        name: name || 'Student',
+        name: name || 'User',
         email: email || ''
       });
     }

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { readStore, writeStore } = require('../data/store');
 
-// Faculty Signup
+// User Signup
 router.post('/signup', (req, res) => {
   const { name, email, password, department } = req.body;
   if (!email || !password) {
@@ -16,11 +16,11 @@ router.post('/signup', (req, res) => {
   }
 
   const newUser = {
-    id: `faculty_${Date.now()}`,
-    name: name || 'Faculty Member',
+    id: `user_${Date.now()}`,
+    name: name || 'User',
     email: email.toLowerCase(),
     password, // In production, hash with bcrypt
-    department: department || 'General Academics',
+    department: department || 'General',
     createdAt: new Date().toISOString()
   };
 
@@ -29,13 +29,13 @@ router.post('/signup', (req, res) => {
 
   const { password: _, ...userWithoutPassword } = newUser;
   return res.json({
-    message: 'Faculty account created successfully.',
+    message: 'Account created successfully.',
     user: userWithoutPassword,
     token: `token_${newUser.id}`
   });
 });
 
-// Faculty Login
+// User Login
 router.post('/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -49,12 +49,12 @@ router.post('/login', (req, res) => {
 
   if (!user) {
     // If demo login or auto fallback
-    if (email === 'faculty@quizgenius.edu' || email === 'demo@quizgenius.edu') {
+    if (email === 'user@datquiz.com' || email === 'demo@datquiz.com') {
       const demoUser = store.users[0] || {
-        id: 'faculty_1',
-        name: 'Dr. Sarah Jenkins',
-        email: 'faculty@quizgenius.edu',
-        department: 'Computer Science'
+        id: 'user_1',
+        name: 'Demo User',
+        email: 'user@datquiz.com',
+        department: 'General'
       };
       const { password: _, ...safeUser } = demoUser;
       return res.json({ user: safeUser, token: `token_${demoUser.id}` });
@@ -98,10 +98,10 @@ router.post('/google', async (req, res) => {
 
   if (!user) {
     user = {
-      id: uid ? `google_${uid}` : `faculty_${Date.now()}`,
+      id: uid ? `google_${uid}` : `user_${Date.now()}`,
       name: name || 'Google User',
       email: email.toLowerCase(),
-      department: 'Academic Faculty',
+      department: 'General',
       authProvider: 'google',
       createdAt: new Date().toISOString()
     };

@@ -483,7 +483,7 @@ export default function CreateQuiz() {
                     className="w-4 h-4 text-[#e65c00] rounded focus:ring-orange-500 accent-[#e65c00]"
                   />
                   <div>
-                    <span className="text-xs font-bold text-slate-900 block">Show Marks to Students After Exam (Default: Off)</span>
+                    <span className="text-xs font-bold text-slate-900 block">Show Marks to Users After Assessment (Default: Off)</span>
                     <span className="text-[11px] text-slate-500 block">If enabled, displays total score obtained on the final completion screen.</span>
                   </div>
                 </label>

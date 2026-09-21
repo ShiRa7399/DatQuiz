@@ -97,12 +97,12 @@ export default function QuizDetail() {
 
   const handleSendInvites = async () => {
     setDispatching(true);
-    setStatusMsg({ type: 'info', text: 'Dispatching student email invites...' });
+    setStatusMsg({ type: 'info', text: 'Dispatching user email invites...' });
 
     try {
       const res = await api.post('/quiz/send-invites', {
         quizCode: quiz.quizCode,
-        facultyEmail: 'faculty@datquiz.edu',
+        userEmail: 'user@datquiz.com',
         frontendUrl: window.location.origin
       });
 
@@ -203,9 +203,9 @@ export default function QuizDetail() {
       {/* QUIZ CODE VIEW */}
       {activeTab === 'code' && (
         <div className="bg-white rounded-3xl border border-brand-200 p-12 shadow-sm text-center flex flex-col items-center justify-center min-h-[500px]">
-          <h2 className="text-3xl font-black text-slate-900 mb-2">Student Scan & Join</h2>
+          <h2 className="text-3xl font-black text-slate-900 mb-2">User Scan & Join</h2>
           <p className="text-sm font-medium text-slate-500 mb-10 max-w-md mx-auto">
-            Students can scan this QR code to join instantly, or they can navigate to your portal and enter the code below.
+            Users can scan this QR code to join instantly, or navigate to the portal and enter the code below.
           </p>
           
           <div className="p-6 bg-brand-50 rounded-[32px] inline-block border-4 border-brand-100 mb-8 shadow-xl hover:scale-105 transition-transform">
@@ -236,7 +236,7 @@ export default function QuizDetail() {
                 <FileSpreadsheet className="w-5 h-5 text-brand-600" /> Excel Roster Uploader (.xlsx)
               </h2>
               <p className="text-xs text-slate-500 mb-4">
-                Upload class roster. Express backend auto-detects columns: <strong>Registration no, name, email</strong>.
+                Upload roster. Express backend auto-detects columns: <strong>Registration no, name, email</strong>.
               </p>
 
               <form onSubmit={handleRosterUpload} className="space-y-4">
@@ -269,7 +269,7 @@ export default function QuizDetail() {
                 <Mail className="w-5 h-5 text-brand-300" /> Bulk Nodemailer Invitations
               </h3>
               <p className="text-xs text-brand-100/90 leading-relaxed">
-                Loops through uploaded student emails and sends individual HTML invitation links (`/#/join?code=...`).
+                Loops through uploaded user emails and sends individual HTML invitation links (`/#/join?code=...`).
 
               </p>
 
@@ -279,14 +279,14 @@ export default function QuizDetail() {
                 className="w-full py-3 bg-white text-brand-900 hover:bg-brand-50 font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Send className="w-4 h-4 text-brand-700" />
-                {dispatching ? 'Sending Bulk Emails...' : `Dispatch Invites to ${quiz.roster?.length || 0} Students`}
+                {dispatching ? 'Sending Bulk Emails...' : `Dispatch Invites to ${quiz.roster?.length || 0} Users`}
               </button>
             </div>
             
             <div className="bg-white rounded-3xl border border-brand-100 p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-brand-600" /> Uploaded Student Roster
+                  <Users className="w-5 h-5 text-brand-600" /> Uploaded User Roster
                 </h2>
                 <span className="px-3 py-1 bg-brand-100 text-brand-800 text-xs font-bold rounded-full">
                   {quiz.roster?.length || 0} Registered

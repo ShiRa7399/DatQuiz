@@ -50,7 +50,7 @@ export default function Instructions() {
               QUIZ CODE: {quizCode}
             </span>
             <h1 className="text-2xl font-black text-slate-900 mt-2">{quiz.title}</h1>
-            <p className="text-xs font-semibold text-slate-500 mt-1">Student: <strong>{name}</strong> ({regNo})</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">User: <strong>{name}</strong> ({regNo})</p>
           </div>
           <div className="text-right">
             <p className="text-xs font-bold text-slate-400 uppercase">Duration</p>
@@ -62,7 +62,7 @@ export default function Instructions() {
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3 text-red-900">
           <ShieldAlert className="w-6 h-6 text-red-600 shrink-0" />
           <p className="text-xs font-extrabold leading-snug">
-            ⚠️ Tab switching is strictly NOT allowed during the exam. Any attempt to switch tabs or minimize the window will log violation alerts for faculty review.
+            ⚠️ Tab switching is strictly NOT allowed during the exam. Any attempt to switch tabs or minimize the window will log violation alerts for review.
           </p>
         </div>
 

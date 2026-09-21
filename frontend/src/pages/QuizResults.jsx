@@ -185,7 +185,7 @@ export default function QuizResults() {
       {/* Submissions Table */}
       <div className="bg-white rounded-3xl border border-brand-100 p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-extrabold text-slate-900">Student Attempts & Cheat Warning Badges</h2>
+          <h2 className="text-base font-extrabold text-slate-900">User Attempts & Cheat Warning Badges</h2>
           <span className="text-xs text-slate-400">Highlighted attempts indicate anti-cheat tab switch flags</span>
         </div>
 
@@ -194,7 +194,7 @@ export default function QuizResults() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-brand-50/60 text-slate-700 text-[11px] font-bold uppercase tracking-wider border-b border-brand-100">
-                  <th className="py-3 px-4">Student</th>
+                  <th className="py-3 px-4">User</th>
                   <th className="py-3 px-4">Registration No</th>
                   <th className="py-3 px-4">Score Obtained</th>
                   <th className="py-3 px-4">Proctor Status & Warnings</th>
@@ -258,7 +258,7 @@ export default function QuizResults() {
           <div className="text-center py-12 border border-brand-200 border-dashed rounded-2xl">
             <Users className="w-10 h-10 text-brand-300 mx-auto mb-2" />
             <p className="text-xs font-bold text-slate-700">No Submissions Recorded Yet</p>
-            <p className="text-[11px] text-slate-400 mt-1">Students completing the quiz will appear here in real-time.</p>
+            <p className="text-[11px] text-slate-400 mt-1">Users completing the quiz will appear here in real-time.</p>
           </div>
         )}
       </div>

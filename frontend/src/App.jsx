@@ -25,13 +25,13 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
 
-            {/* Protected Faculty Workspace */}
+            {/* Protected Workspace */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/create-quiz" element={<ProtectedRoute><CreateQuiz /></ProtectedRoute>} />
             <Route path="/quiz/:code" element={<ProtectedRoute><QuizDetail /></ProtectedRoute>} />
             <Route path="/quiz/:code/results" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
 
-            {/* Student Exam Routes */}
+            {/* User Exam Routes */}
             <Route path="/join" element={<StudentJoin />} />
             <Route path="/instructions" element={<Instructions />} />
             <Route path="/take-quiz/:code" element={<TakeQuiz />} />
