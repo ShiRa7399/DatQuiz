@@ -64,47 +64,69 @@ function safeParseJsonArray(rawText) {
 }
 
 /**
- * Splits document text into intact question batches so no question is chopped in half.
+ * Universal Question-Aware Splitter: Detects all question boundaries regardless of format
  */
 function splitTextIntoQuestionBatches(text) {
   if (!text || typeof text !== 'string') return [text || ''];
 
-  // Match question boundary headers: "1.", "2)", "Q3:", "(4)", "100."
-  const qRegex = /(?:^|\n|\r)\s*(?:Q(?:uestion)?\s*)?\(?(\d+)[\.\:\)\-\]]\s+/gi;
+  // Universal Regex matching "1.", "1)", "1:", "1 ", "Q1.", "Q.1", "Question 1", "(1)", "[1]", "1-"
+  const qRegex = /(?:^|\n|\r)\s*(?:Q(?:uestion)?[\.\s]*)?\(?\s*(\d{1,3})\s*[\.\:\)\-\]\s]\s*/gi;
 
   const matches = [];
   let match;
   while ((match = qRegex.exec(text)) !== null) {
-    matches.push({
-      num: parseInt(match[1], 10),
-      index: match.index
-    });
+    const qNum = parseInt(match[1], 10);
+    if (qNum >= 1 && qNum <= 500) {
+      matches.push({
+        num: qNum,
+        index: match.index
+      });
+    }
   }
 
-  // If question boundaries were detected, split at question boundaries in batches of ~25 questions
-  if (matches.length >= 10) {
-    const chunks = [];
-    const BATCH_SIZE = 25; // 25 questions per chunk
+  // Deduplicate matches occurring at virtually identical offsets
+  const uniqueMatches = [];
+  let lastIdx = -10;
+  matches.forEach(m => {
+    if (m.index > lastIdx + 8) {
+      uniqueMatches.push(m);
+      lastIdx = m.index;
+    }
+  });
 
-    for (let i = 0; i < matches.length; i += BATCH_SIZE) {
-      const startIndex = matches[i].index;
-      const nextBatchMatch = matches[i + BATCH_SIZE];
+  if (uniqueMatches.length >= 2) {
+    const chunks = [];
+    const BATCH_SIZE = 20; // 20 questions per chunk
+
+    for (let i = 0; i < uniqueMatches.length; i += BATCH_SIZE) {
+      const startIndex = uniqueMatches[i].index;
+      const nextBatchMatch = uniqueMatches[i + BATCH_SIZE];
       const endIndex = nextBatchMatch ? nextBatchMatch.index : text.length;
 
       const chunkText = text.slice(startIndex, endIndex).trim();
-      if (chunkText.length > 20) {
+      if (chunkText.length > 15) {
         chunks.push(chunkText);
       }
     }
 
-    console.log(`📑 Question-Aware Splitter: Found ${matches.length} questions in document! Created ${chunks.length} intact batch chunk(s).`);
+    console.log(`📑 Universal Question Splitter: Found ${uniqueMatches.length} questions! Created ${chunks.length} intact batch chunk(s).`);
     return chunks;
   }
 
-  // Fallback: If no numerical question boundaries found, split by ~5000 character offsets
-  if (text.length > 6000) {
+  // Fallback: If no numerical question boundaries found, split by double newlines or ~4000 char sections
+  const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 10);
+  if (paragraphs.length >= 5) {
     const chunks = [];
-    const chunkSize = 5000;
+    const PARAS_PER_CHUNK = 15;
+    for (let i = 0; i < paragraphs.length; i += PARAS_PER_CHUNK) {
+      chunks.push(paragraphs.slice(i, i + PARAS_PER_CHUNK).join('\n\n'));
+    }
+    return chunks;
+  }
+
+  if (text.length > 5000) {
+    const chunks = [];
+    const chunkSize = 4000;
     for (let i = 0; i < text.length; i += chunkSize) {
       chunks.push(text.slice(i, i + chunkSize));
     }
@@ -228,7 +250,7 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const prompt = `You are an expert exam creator and document parser. Extract ALL distinct multiple-choice questions (MCQs) from this document section.
 CRITICAL INSTRUCTIONS:
 1. IGNORE cover page titles, header banners, university/school names, dates, course codes, exam instructions, total marks headers, and page footers.
-2. Extract EVERY single unique multiple-choice question present in this document section. Parse ALL questions in full!
+2. MUST EXTRACT EVERY SINGLE QUESTION: You MUST extract Question 1, Question 2, Question 3... all questions present in this section from top to bottom. DO NOT stop after 1 or 2 questions! Parse ALL questions!
 3. OPTIONS UNBUNDLING:
    - Separate every option into an individual string in the "options" array: ["Option A text", "Option B text", "Option C text", "Option D text"].
 4. "correctAnswer" must be a single uppercase letter: "A", "B", "C", or "D".
@@ -252,7 +274,7 @@ CRITICAL INSTRUCTIONS:
 
 Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain text.`;
 
-  // Use Question-Aware Splitter to split by 25-question batches
+  // Use Universal Question Splitter
   const textChunks = splitTextIntoQuestionBatches(pdfText);
 
   let lastErr;
@@ -264,7 +286,7 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
       const chunkPromises = textChunks.map(async (chunkText, cIdx) => {
         let text = '';
         const contentsParts = [];
-        if (chunkText && chunkText.trim().length > 20) {
+        if (chunkText && chunkText.trim().length > 15) {
           contentsParts.push({ text: `DOCUMENT BATCH SECTION ${cIdx + 1}/${textChunks.length}:\n${chunkText}` });
         }
         if (isPdf && base64Data && textChunks.length === 1) {
@@ -396,32 +418,42 @@ function parseTextToQuestions(text) {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 
-  // Match question boundary markers anywhere: e.g. "1.", " 2.", "\n3.", "Question 4:", "Q5.", "1)", "(1)"
-  const qRegex = /(?:^|\n|\r)\s*(?:Q(?:uestion)?\s*)?\(?(\d+)[\.\:\)\-\]]\s+/gi;
+  const qRegex = /(?:^|\n|\r)\s*(?:Q(?:uestion)?[\.\s]*)?\(?\s*(\d{1,3})\s*[\.\:\)\-\]\s]\s*/gi;
 
   const matches = [];
   let match;
   while ((match = qRegex.exec(cleanedText)) !== null) {
     const qNum = parseInt(match[1], 10);
-    matches.push({
-      num: qNum,
-      index: match.index,
-      matchLength: match[0].length
-    });
+    if (qNum >= 1 && qNum <= 500) {
+      matches.push({
+        num: qNum,
+        index: match.index,
+        matchLength: match[0].length
+      });
+    }
   }
 
+  const uniqueMatches = [];
+  let lastIdx = -10;
+  matches.forEach(m => {
+    if (m.index > lastIdx + 8) {
+      uniqueMatches.push(m);
+      lastIdx = m.index;
+    }
+  });
+
   const blocks = [];
-  if (matches.length > 1) {
-    for (let i = 0; i < matches.length; i++) {
-      const start = matches[i].index;
-      const end = (i < matches.length - 1) ? matches[i + 1].index : cleanedText.length;
+  if (uniqueMatches.length >= 2) {
+    for (let i = 0; i < uniqueMatches.length; i++) {
+      const start = uniqueMatches[i].index;
+      const end = (i < uniqueMatches.length - 1) ? uniqueMatches[i + 1].index : cleanedText.length;
       const blockText = cleanedText.slice(start, end).trim();
       if (blockText.length > 5) {
         blocks.push(blockText);
       }
     }
   } else {
-    cleanedText.split(/\n\s*\n/).forEach(b => {
+    cleanedText.split(/\n+/).forEach(b => {
       if (b.trim().length > 10) blocks.push(b.trim());
     });
   }
@@ -429,7 +461,7 @@ function parseTextToQuestions(text) {
   const seenQuestionTexts = new Set();
 
   blocks.forEach((block, index) => {
-    let content = block.replace(/^(?:^|\s*)(?:Q(?:uestion)?\s*)?\(?\d+[\.\:\)\-\]]\s*/i, '').trim();
+    let content = block.replace(/^(?:^|\s*)(?:Q(?:uestion)?[\.\s]*)?\(?\s*\d{1,3}\s*[\.\:\)\-\]\s]\s*/i, '').trim();
 
     if (!content || content.length < 4) return;
 
