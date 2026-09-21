@@ -5,7 +5,7 @@ const API_BASE_URL = isLocal ? 'http://localhost:5000/api' : 'https://datquiz.on
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 120000,
 });
 
 // Interceptor for auth header

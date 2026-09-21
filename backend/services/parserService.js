@@ -121,20 +121,19 @@ function unbundleOptions(optionsArray) {
 async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
-  // List of Gemini model versions prioritized as requested by user
+  // List of Gemini model versions prioritized for maximum speed and accuracy
   const modelNames = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
     "gemini-3.8-flash",
     "gemini-3.7-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash-lite",
     "gemini-3.5-flash",
     "gemini-3.1-flash-lite",
-    "gemini-3.1-lite",
-    "gemini-2.5-flash",
     "gemini-2.5-pro",
-    "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
     "gemini-1.5-pro"
   ];
   let lastErr;
