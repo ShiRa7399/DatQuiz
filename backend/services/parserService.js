@@ -233,8 +233,6 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
 
   if (lastErr) throw lastErr;
   return null;
-}ow lastErr;
-  return [];
 }
 
 /**
