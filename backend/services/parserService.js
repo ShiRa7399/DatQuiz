@@ -64,6 +64,57 @@ function safeParseJsonArray(rawText) {
 }
 
 /**
+ * Splits document text into intact question batches so no question is chopped in half.
+ */
+function splitTextIntoQuestionBatches(text) {
+  if (!text || typeof text !== 'string') return [text || ''];
+
+  // Match question boundary headers: "1.", "2)", "Q3:", "(4)", "100."
+  const qRegex = /(?:^|\n|\r)\s*(?:Q(?:uestion)?\s*)?\(?(\d+)[\.\:\)\-\]]\s+/gi;
+
+  const matches = [];
+  let match;
+  while ((match = qRegex.exec(text)) !== null) {
+    matches.push({
+      num: parseInt(match[1], 10),
+      index: match.index
+    });
+  }
+
+  // If question boundaries were detected, split at question boundaries in batches of ~25 questions
+  if (matches.length >= 10) {
+    const chunks = [];
+    const BATCH_SIZE = 25; // 25 questions per chunk
+
+    for (let i = 0; i < matches.length; i += BATCH_SIZE) {
+      const startIndex = matches[i].index;
+      const nextBatchMatch = matches[i + BATCH_SIZE];
+      const endIndex = nextBatchMatch ? nextBatchMatch.index : text.length;
+
+      const chunkText = text.slice(startIndex, endIndex).trim();
+      if (chunkText.length > 20) {
+        chunks.push(chunkText);
+      }
+    }
+
+    console.log(`📑 Question-Aware Splitter: Found ${matches.length} questions in document! Created ${chunks.length} intact batch chunk(s).`);
+    return chunks;
+  }
+
+  // Fallback: If no numerical question boundaries found, split by ~5000 character offsets
+  if (text.length > 6000) {
+    const chunks = [];
+    const chunkSize = 5000;
+    for (let i = 0; i < text.length; i += chunkSize) {
+      chunks.push(text.slice(i, i + chunkSize));
+    }
+    return chunks;
+  }
+
+  return [text];
+}
+
+/**
  * Parses raw text or PDF buffer into structured JSON questions array.
  */
 async function parseQuestionsFromBuffer(buffer, mimeType, originalName, requestApiKey = null) {
@@ -174,7 +225,7 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
     pdfText = buffer.toString('utf-8');
   }
 
-  const prompt = `You are an expert exam creator and document parser. Extract ALL distinct multiple-choice questions (MCQs) from this document chunk.
+  const prompt = `You are an expert exam creator and document parser. Extract ALL distinct multiple-choice questions (MCQs) from this document section.
 CRITICAL INSTRUCTIONS:
 1. IGNORE cover page titles, header banners, university/school names, dates, course codes, exam instructions, total marks headers, and page footers.
 2. Extract EVERY single unique multiple-choice question present in this document section. Parse ALL questions in full!
@@ -201,29 +252,20 @@ CRITICAL INSTRUCTIONS:
 
 Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain text.`;
 
-  // Determine if document text is large and needs chunking (~6000 chars / ~25 questions per chunk)
-  const textChunks = [];
-  if (pdfText && pdfText.length > 7000) {
-    const chunkSize = 6000;
-    for (let i = 0; i < pdfText.length; i += chunkSize) {
-      textChunks.push(pdfText.slice(i, i + chunkSize));
-    }
-    console.log(`📑 Document is large (${pdfText.length} chars). Split into ${textChunks.length} chunks for complete 100% question extraction.`);
-  } else {
-    textChunks.push(pdfText);
-  }
+  // Use Question-Aware Splitter to split by 25-question batches
+  const textChunks = splitTextIntoQuestionBatches(pdfText);
 
   let lastErr;
 
   for (const mName of modelNames) {
     try {
-      console.log(`🤖 Attempting Gemini extraction with model: ${mName} across ${textChunks.length} parallel section(s)...`);
-      
+      console.log(`🤖 Attempting Gemini extraction with model: ${mName} across ${textChunks.length} parallel batch chunk(s)...`);
+
       const chunkPromises = textChunks.map(async (chunkText, cIdx) => {
         let text = '';
         const contentsParts = [];
-        if (chunkText && chunkText.trim().length > 30) {
-          contentsParts.push({ text: `DOCUMENT SECTION ${cIdx + 1}/${textChunks.length}:\n${chunkText}` });
+        if (chunkText && chunkText.trim().length > 20) {
+          contentsParts.push({ text: `DOCUMENT BATCH SECTION ${cIdx + 1}/${textChunks.length}:\n${chunkText}` });
         }
         if (isPdf && base64Data && textChunks.length === 1) {
           contentsParts.push({
@@ -247,7 +289,7 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
           try {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${apiKey}`;
             const restParts = chunkText 
-              ? [{ text: `DOCUMENT SECTION ${cIdx + 1}:\n${chunkText}` }, { text: prompt }]
+              ? [{ text: `DOCUMENT BATCH SECTION ${cIdx + 1}:\n${chunkText}` }, { text: prompt }]
               : [{ inline_data: { mime_type: effectiveMimeType, data: base64Data } }, { text: prompt }];
 
             const res = await fetch(url, {
