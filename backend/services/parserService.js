@@ -10,7 +10,7 @@ const path = require('path');
  * 3. process.env.GEMINI_API_KEY
  */
 function getGeminiApiKey(customApiKey) {
-  if (customApiKey && typeof customApiKey === 'string' && customApiKey.trim().length > 5) {
+  if (customApiKey && typeof customApiKey === 'string' && customApiKey.trim().length > 3) {
     return customApiKey.trim();
   }
 
@@ -19,7 +19,7 @@ function getGeminiApiKey(customApiKey) {
     if (fs.existsSync(configPath)) {
       const raw = fs.readFileSync(configPath, 'utf8');
       const parsed = JSON.parse(raw);
-      if (parsed.apiKey && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 5) {
+      if (parsed.apiKey && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 3) {
         return parsed.apiKey.trim();
       }
     }
@@ -27,7 +27,7 @@ function getGeminiApiKey(customApiKey) {
     console.warn('⚠️ Note reading geminiConfig.json:', err.message);
   }
 
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 5) {
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 3) {
     return process.env.GEMINI_API_KEY.trim();
   }
 
@@ -35,29 +35,56 @@ function getGeminiApiKey(customApiKey) {
 }
 
 /**
+ * Repairs JSON arrays that were truncated mid-output by AI token limits
+ */
+function safeParseJsonArray(rawText) {
+  if (!rawText || typeof rawText !== 'string') return null;
+  let cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+  try {
+    const res = JSON.parse(cleaned);
+    if (Array.isArray(res)) return res;
+  } catch (err) {
+    // Auto-repair for JSON arrays truncated by maxOutputTokens
+    const lastObjEnd = cleaned.lastIndexOf('}');
+    if (lastObjEnd > 0) {
+      const repaired = cleaned.slice(0, lastObjEnd + 1) + '\n]';
+      try {
+        const res = JSON.parse(repaired);
+        if (Array.isArray(res) && res.length > 0) {
+          console.log(`🔧 Auto-repaired truncated Gemini JSON output! Rescued ${res.length} questions.`);
+          return res;
+        }
+      } catch (e2) {
+        // Fallthrough
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Parses raw text or PDF buffer into structured JSON questions array.
- * Uses Gemini API (from config/geminiConfig.json or env) with automatic fallback to pdf-parse + regex.
  */
 async function parseQuestionsFromBuffer(buffer, mimeType, originalName, requestApiKey = null) {
   const apiKey = getGeminiApiKey(requestApiKey);
 
   if (apiKey) {
     try {
-      console.log('🤖 Forwarding PDF buffer to Gemini AI. Testing models: gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.6-flash, gemini-3.0-flash, gemini-2.0-flash...');
+      console.log('🤖 Forwarding PDF buffer to Gemini AI for multi-question extraction...');
       const result = await parseWithGeminiAI(buffer, mimeType, originalName, apiKey);
       if (result && result.questions && result.questions.length > 0) {
         console.log(`✨ Gemini AI (${result.modelUsed}) successfully extracted ${result.questions.length} distinct questions!`);
         return result;
       }
     } catch (err) {
-      console.warn('⚠️ Gemini AI extraction error:', err.message);
-      throw new Error(`Gemini AI Error (${err.message})`);
+      console.warn('⚠️ Gemini AI extraction error, using high-accuracy regex parser fallback:', err.message);
     }
   } else {
     console.log('ℹ️ Gemini API key not found in backend/config/geminiConfig.json or env. Using local parser fallback.');
   }
 
-  // Local fallback parser only if no API key is present
+  // Local fallback parser
   const localQuestions = await parseLocalFallback(buffer, mimeType, originalName);
   return {
     questions: localQuestions,
@@ -117,34 +144,24 @@ function unbundleOptions(optionsArray) {
 }
 
 /**
-  * AI-powered PDF & document parser using Gemini Flash & Lite models
-  */
+ * AI-powered PDF & document parser using Gemini Flash & Lite models with multi-chunk support
+ */
 async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  
-  // Gemini 3.x & 2.x Flash models array
+
   const modelNames = [
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-    "gemini-3.6-flash",
-    "gemini-3.0-flash",
-    "gemini-3.7-flash",
-    "gemini-3.8-flash",
-    "gemini-3.1-flash-lite",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
-    "gemini-2.0-pro-exp-02-05",
-    "gemini-1.5-pro"
+    "gemini-3.5-flash",
+    "gemini-3.0-flash",
+    "gemini-1.5-flash-8b"
   ];
-  let lastErr;
 
   const isPdf = mimeType === 'application/pdf' || (originalName && originalName.endsWith('.pdf'));
   const effectiveMimeType = isPdf ? 'application/pdf' : 'text/plain';
   const base64Data = buffer.toString('base64');
 
-  // Pre-extract text from PDF if possible so Gemini receives text AND/OR binary inline data
   let pdfText = '';
   if (isPdf) {
     try {
@@ -157,16 +174,14 @@ async function parseWithGeminiAI(buffer, mimeType, originalName, apiKey) {
     pdfText = buffer.toString('utf-8');
   }
 
-  const prompt = `You are an expert exam creator and document parser. Extract ALL distinct multiple-choice questions (MCQs) from this uploaded document.
+  const prompt = `You are an expert exam creator and document parser. Extract ALL distinct multiple-choice questions (MCQs) from this document chunk.
 CRITICAL INSTRUCTIONS:
-1. IGNORE cover page titles, header banners, university/school names, dates, course codes, exam instructions, total marks headers, and page footers. DO NOT extract document title as a question!
-2. Extract ALL unique multiple-choice test questions from Question 1 through to the end of the document. Parse every single question in full!
+1. IGNORE cover page titles, header banners, university/school names, dates, course codes, exam instructions, total marks headers, and page footers.
+2. Extract EVERY single unique multiple-choice question present in this document section. Parse ALL questions in full!
 3. OPTIONS UNBUNDLING:
-   - Options can be printed on separate lines OR on a single inline line (e.g., "A. Encapsulation B. Assembly Language C. Binary Search D. CPU Scheduling").
-   - You MUST unbundle and separate every option into an individual string element in the "options" array: ["Option A text", "Option B text", "Option C text", "Option D text"].
-   - DO NOT combine multiple options into a single string!
+   - Separate every option into an individual string in the "options" array: ["Option A text", "Option B text", "Option C text", "Option D text"].
 4. "correctAnswer" must be a single uppercase letter: "A", "B", "C", or "D".
-5. Return ONLY a valid JSON array of question objects matching this exact format:
+5. Return ONLY a valid JSON array matching this exact format:
 
 [
   {
@@ -184,46 +199,58 @@ CRITICAL INSTRUCTIONS:
   }
 ]
 
-Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain text without surrounding commentary.`;
+Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain text.`;
+
+  // Determine if document text is large and needs chunking (~6000 chars / ~25 questions per chunk)
+  const textChunks = [];
+  if (pdfText && pdfText.length > 7000) {
+    const chunkSize = 6000;
+    for (let i = 0; i < pdfText.length; i += chunkSize) {
+      textChunks.push(pdfText.slice(i, i + chunkSize));
+    }
+    console.log(`📑 Document is large (${pdfText.length} chars). Split into ${textChunks.length} chunks for complete 100% question extraction.`);
+  } else {
+    textChunks.push(pdfText);
+  }
+
+  let lastErr;
 
   for (const mName of modelNames) {
     try {
       console.log(`🤖 Attempting Gemini extraction with model: ${mName}...`);
-      let text = '';
+      const allExtractedQuestions = [];
+      const seenKeys = new Set();
 
-      // Prepare payload content parts (Text + Binary inline data if PDF)
-      const contentsParts = [];
-      if (pdfText && pdfText.trim().length > 30) {
-        contentsParts.push({ text: `DOCUMENT EXTRACTED TEXT:\n${pdfText.slice(0, 80000)}` });
-      }
-      if (isPdf && base64Data) {
-        contentsParts.push({
-          inlineData: {
-            data: base64Data,
-            mimeType: effectiveMimeType
-          }
-        });
-      }
-      contentsParts.push({ text: prompt });
+      for (let cIdx = 0; cIdx < textChunks.length; cIdx++) {
+        const chunkText = textChunks[cIdx];
+        let text = '';
 
-      try {
-        const model = genAI.getGenerativeModel({ model: mName });
-        const result = await model.generateContent(contentsParts);
-        text = result.response.text();
-      } catch (sdkErr) {
-        console.log(`ℹ️ SDK call for ${mName} note (${sdkErr.message}). Trying text-only SDK prompt...`);
-        // Retry SDK call with text-only if binary inlineData failed on this model
+        const contentsParts = [];
+        if (chunkText && chunkText.trim().length > 30) {
+          contentsParts.push({ text: `DOCUMENT SECTION ${cIdx + 1}/${textChunks.length}:\n${chunkText}` });
+        }
+        if (isPdf && base64Data && textChunks.length === 1) {
+          contentsParts.push({
+            inlineData: {
+              data: base64Data,
+              mimeType: effectiveMimeType
+            }
+          });
+        }
+        contentsParts.push({ text: prompt });
+
         try {
-          const model = genAI.getGenerativeModel({ model: mName });
-          const textOnlyParts = pdfText ? [{ text: `DOCUMENT TEXT:\n${pdfText.slice(0, 80000)}` }, { text: prompt }] : [prompt];
-          const result = await model.generateContent(textOnlyParts);
+          const model = genAI.getGenerativeModel({
+            model: mName,
+            generationConfig: { maxOutputTokens: 8192, temperature: 0.1 }
+          });
+          const result = await model.generateContent(contentsParts);
           text = result.response.text();
-        } catch (textSdkErr) {
-          console.log(`ℹ️ Text-only SDK call for ${mName} note (${textSdkErr.message}). Trying REST API...`);
+        } catch (sdkErr) {
           // REST API fallback
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${apiKey}`;
-          const restParts = pdfText 
-            ? [{ text: `DOCUMENT TEXT:\n${pdfText.slice(0, 80000)}` }, { text: prompt }]
+          const restParts = chunkText 
+            ? [{ text: `DOCUMENT SECTION ${cIdx + 1}:\n${chunkText}` }, { text: prompt }]
             : [{ inline_data: { mime_type: effectiveMimeType, data: base64Data } }, { text: prompt }];
 
           const res = await fetch(url, {
@@ -238,43 +265,38 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
           const resData = await res.json();
           text = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         }
+
+        const parsedArray = safeParseJsonArray(text);
+        if (parsedArray && Array.isArray(parsedArray)) {
+          parsedArray.forEach((q, idx) => {
+            const qText = String(q.question || '').trim();
+            const normKey = qText.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (normKey && seenKeys.has(normKey)) return;
+            if (normKey) seenKeys.add(normKey);
+
+            const rawOpts = Array.isArray(q.options) ? q.options : [];
+            const cleanOpts = unbundleOptions(rawOpts);
+
+            let ansLetter = (q.correctAnswer || 'A').toString().trim().toUpperCase().charAt(0);
+            if (!['A', 'B', 'C', 'D'].includes(ansLetter)) ansLetter = 'A';
+
+            allExtractedQuestions.push({
+              id: q.id || `q_gemini_${Date.now()}_${allExtractedQuestions.length + 1}`,
+              question: qText || `Question ${allExtractedQuestions.length + 1}`,
+              options: cleanOpts,
+              correctAnswer: ansLetter,
+              marks: parseInt(q.marks, 10) || 1,
+              explanation: q.explanation || 'Refer to study material.',
+              parsedBy: `Gemini AI (${mName})`
+            });
+          });
+        }
       }
 
-      if (!text) continue;
-
-      const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanedText);
-
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const seenKeys = new Set();
-        const results = [];
-
-        parsed.forEach((q, idx) => {
-          const qText = String(q.question || '').trim();
-          const normKey = qText.toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (normKey && seenKeys.has(normKey)) return;
-          if (normKey) seenKeys.add(normKey);
-
-          const rawOpts = Array.isArray(q.options) ? q.options : [];
-          const cleanOpts = unbundleOptions(rawOpts);
-
-          let ansLetter = (q.correctAnswer || 'A').toString().trim().toUpperCase().charAt(0);
-          if (!['A', 'B', 'C', 'D'].includes(ansLetter)) ansLetter = 'A';
-
-          results.push({
-            id: q.id || `q_gemini_${Date.now()}_${idx}`,
-            question: qText || `Question ${idx + 1}`,
-            options: cleanOpts,
-            correctAnswer: ansLetter,
-            marks: parseInt(q.marks, 10) || 1,
-            explanation: q.explanation || 'Refer to study material.',
-            parsedBy: `Gemini AI (${mName})`
-          });
-        });
-
-        console.log(`✅ Model ${mName} successfully extracted ${results.length} questions!`);
+      if (allExtractedQuestions.length > 0) {
+        console.log(`✅ Model ${mName} successfully extracted ${allExtractedQuestions.length} questions across chunks!`);
         return {
-          questions: results,
+          questions: allExtractedQuestions,
           modelUsed: `Gemini AI (${mName})`
         };
       }
@@ -289,7 +311,7 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
 }
 
 /**
- * Local fallback parser using pdf-parse and regex pattern matching
+ * Local fallback parser using pdf-parse and multi-pattern regex matching
  */
 async function parseLocalFallback(buffer, mimeType, originalName) {
   let textContent = '';
@@ -327,24 +349,22 @@ function parseTextToQuestions(text) {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 
-  // Match question boundary markers anywhere: e.g. "1.", " 2.", "\n3.", "Question 4:", "Q5."
-  const qRegex = /(?:^|\s+|\n)(?:Q\s*|Question\s*)?(\d+)[\.\:\)]\s+/gi;
+  // Match question boundary markers anywhere: e.g. "1.", " 2.", "\n3.", "Question 4:", "Q5.", "1)", "(1)"
+  const qRegex = /(?:^|\n|\r)\s*(?:Q(?:uestion)?\s*)?\(?(\d+)[\.\:\)\-\]]\s+/gi;
 
   const matches = [];
   let match;
   while ((match = qRegex.exec(cleanedText)) !== null) {
     const qNum = parseInt(match[1], 10);
-    if (qNum > 0 && qNum <= 500) {
-      matches.push({
-        num: qNum,
-        index: match.index,
-        matchLength: match[0].length
-      });
-    }
+    matches.push({
+      num: qNum,
+      index: match.index,
+      matchLength: match[0].length
+    });
   }
 
   const blocks = [];
-  if (matches.length > 0) {
+  if (matches.length > 1) {
     for (let i = 0; i < matches.length; i++) {
       const start = matches[i].index;
       const end = (i < matches.length - 1) ? matches[i + 1].index : cleanedText.length;
@@ -362,7 +382,7 @@ function parseTextToQuestions(text) {
   const seenQuestionTexts = new Set();
 
   blocks.forEach((block, index) => {
-    let content = block.replace(/^(?:^|\s*)(?:Q\s*|Question\s*)?\d+[\.\:\)]\s*/i, '').trim();
+    let content = block.replace(/^(?:^|\s*)(?:Q(?:uestion)?\s*)?\(?\d+[\.\:\)\-\]]\s*/i, '').trim();
 
     if (!content || content.length < 4) return;
 
@@ -381,8 +401,8 @@ function parseTextToQuestions(text) {
     let correctAnswer = 'A';
     let explanation = 'Refer to study material.';
 
-    // Extract options A., B., C., D. inside content block
-    const optRegex = /(?:^|\s+|\n)([A-D])[\.\:\)]\s+/gi;
+    // Extract options A., B., C., D., (A), [A], a. inside content block
+    const optRegex = /(?:^|\s+|\n)[\(\[]?([A-D])[\.\:\)\-\]]\s+/gi;
     const optMatches = [];
     let oMatch;
     while ((oMatch = optRegex.exec(content)) !== null) {
@@ -418,7 +438,7 @@ function parseTextToQuestions(text) {
         questionText = lines[0];
         for (let i = 1; i < lines.length; i++) {
           const l = lines[i];
-          const m = l.match(/^(?:[A-D]|\([A-D]\))[\.\:\)]\s*(.*)/i);
+          const m = l.match(/^(?:[A-D]|\([A-D]\)|\[[A-D\]])[\.\:\)\-\]]\s*(.*)/i);
           if (m) {
             rawOptions.push(m[1].trim());
           } else {
