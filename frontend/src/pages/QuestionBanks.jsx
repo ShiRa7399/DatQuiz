@@ -60,7 +60,7 @@ export default function QuestionBanks() {
     try {
       const res = await api.post('/question-bank/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000
+        timeout: 0
       });
 
       setStatusMsg({ 

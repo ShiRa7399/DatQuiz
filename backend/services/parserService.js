@@ -217,14 +217,10 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
 
   for (const mName of modelNames) {
     try {
-      console.log(`🤖 Attempting Gemini extraction with model: ${mName}...`);
-      const allExtractedQuestions = [];
-      const seenKeys = new Set();
-
-      for (let cIdx = 0; cIdx < textChunks.length; cIdx++) {
-        const chunkText = textChunks[cIdx];
+      console.log(`🤖 Attempting Gemini extraction with model: ${mName} across ${textChunks.length} parallel section(s)...`);
+      
+      const chunkPromises = textChunks.map(async (chunkText, cIdx) => {
         let text = '';
-
         const contentsParts = [];
         if (chunkText && chunkText.trim().length > 30) {
           contentsParts.push({ text: `DOCUMENT SECTION ${cIdx + 1}/${textChunks.length}:\n${chunkText}` });
@@ -248,27 +244,36 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
           text = result.response.text();
         } catch (sdkErr) {
           // REST API fallback
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${apiKey}`;
-          const restParts = chunkText 
-            ? [{ text: `DOCUMENT SECTION ${cIdx + 1}:\n${chunkText}` }, { text: prompt }]
-            : [{ inline_data: { mime_type: effectiveMimeType, data: base64Data } }, { text: prompt }];
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${apiKey}`;
+            const restParts = chunkText 
+              ? [{ text: `DOCUMENT SECTION ${cIdx + 1}:\n${chunkText}` }, { text: prompt }]
+              : [{ inline_data: { mime_type: effectiveMimeType, data: base64Data } }, { text: prompt }];
 
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: restParts }] })
-          });
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`Gemini REST API error ${res.status}: ${errText}`);
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: restParts }] })
+            });
+            if (res.ok) {
+              const resData = await res.json();
+              text = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            }
+          } catch (eRest) {
+            // Ignore rest error for this chunk
           }
-          const resData = await res.json();
-          text = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         }
 
-        const parsedArray = safeParseJsonArray(text);
+        return safeParseJsonArray(text) || [];
+      });
+
+      const chunkResults = await Promise.all(chunkPromises);
+      const allExtractedQuestions = [];
+      const seenKeys = new Set();
+
+      chunkResults.forEach((parsedArray) => {
         if (parsedArray && Array.isArray(parsedArray)) {
-          parsedArray.forEach((q, idx) => {
+          parsedArray.forEach((q) => {
             const qText = String(q.question || '').trim();
             const normKey = qText.toLowerCase().replace(/[^a-z0-9]/g, '');
             if (normKey && seenKeys.has(normKey)) return;
@@ -291,7 +296,7 @@ Return ONLY raw valid JSON array inside \`\`\`json \`\`\` codeblock or plain tex
             });
           });
         }
-      }
+      });
 
       if (allExtractedQuestions.length > 0) {
         console.log(`✅ Model ${mName} successfully extracted ${allExtractedQuestions.length} questions across chunks!`);
